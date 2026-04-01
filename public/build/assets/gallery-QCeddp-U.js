@@ -1,0 +1,1 @@
+(function(){var t=GLightbox({selector:".glightbox"});t.on("slide_changed",({prev:g,current:e})=>{}),GLightbox({selector:".glightbox"}),GLightbox({selector:".glightbox2"});var i=GLightbox({selector:".glightbox3"});i.on("slide_load",({slideNode:g,player:e})=>{e&&(e.ready||e.on("ready",o=>{}),e.on("play",o=>{}),e.on("volumechange",o=>{}),e.on("ended",o=>{}))})})();
