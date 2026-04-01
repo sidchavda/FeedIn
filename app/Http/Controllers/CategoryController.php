@@ -16,10 +16,18 @@ class CategoryController extends Controller
         $this->middleware('auth');
     }
 
+
+    /**
+     * This function is the constructor for the CategoryController class.
+     * It is used to initialize the middleware for the class.
+     *
+     * @return void
+     */
+
     public function index(Request $request)
     {
         $query = Category::with('language');
-        // Search
+        // Search `
         $search = $request->search;
         $query = $query->where(function($query) use ($search){
             $query->orWhere('name', 'like', "%".$search."%");
