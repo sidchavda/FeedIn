@@ -1,0 +1,196 @@
+/* Start::task-kanboard-board */
+.synto-kanban-board {
+    display: flex;
+    overflow-x: auto;
+    align-items: stretch;
+    margin-bottom: 0.75rem;
+    padding-bottom: 1rem;
+    .kanban-tasks-type {
+        min-width: 20rem;
+        margin-inline-end: 1.5rem;
+        width: 100%;
+        .kanban-tasks{
+            .card {
+                touch-action: none;
+            }
+        }
+    }
+    &::-webkit-scrollbar-thumb {
+        background-color: rgba(var(--dark-rgb), 0.1);
+        border-radius: .3125rem;
+    }
+    &::-webkit-scrollbar-track {
+        border-radius: .3125rem;
+    }
+    .task-image {
+        .kanban-image {
+            height: 150px;
+            width: 100%;
+        }
+    } 
+    .kanban-content {
+        margin-top: 0.75rem;
+    }
+    .kanban-task-description {
+        color: $text-muted;
+        font-size: 0.82rem;
+    }
+    .kanban-tasks-type {
+        &.new {
+            .kanban-tasks .card-top{
+                border-top: 5px solid rgba(var(--danger-rgb),0.9);
+            }
+        }
+        &.todo {
+            .kanban-tasks .card-top{
+                border-top: 5px solid rgba(var(--warning-rgb),0.9);
+            }
+        }
+        &.in-progress {
+            .kanban-tasks .card-top{
+                border-top: 5px solid rgba(var(--info-rgb),0.9);
+            }
+        }
+        &.completed {
+            .kanban-tasks .card-top{
+                border-top: 5px solid rgba(var(--success-rgb),0.9);
+            }
+        }
+    }
+    #new-tasks,#todo-tasks,#inprogress-tasks,#inreview-tasks,#completed-tasks {
+        .card.custom-card:last-child {
+            margin-bottom: 0;
+        }
+    }
+    #new-tasks,#todo-tasks,#inprogress-tasks,#inreview-tasks,#completed-tasks {
+        position: relative;
+        max-height: 35rem;
+        .simplebar-content {
+            padding: 0 1rem 0 0 !important;
+        }
+    }
+    .view-more-button {
+        margin-right: 1rem;
+    }
+}
+.kanban-sortby {
+    
+}
+/* end::task-kanboard-board */
+
+/* Start::task-details */
+.task-title {
+    position: relative;
+    inset-inline-start: 1rem;
+    &::before {
+        position: absolute;
+        content: "";
+        width: 0.5rem;
+        height: 0.5rem;
+        inset-inline-start: -1rem;
+        top: 0.5rem;
+        border-radius: 50%;
+        background-color: $secondary;
+    }
+}
+.task-details-key-tasks {
+    list-style-type:decimal;
+    li {
+        margin-bottom: 0.5rem;
+        font-size: .875rem;
+        color: $text-muted;
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+.task-description {
+    font-size: 0.875rem;
+}
+.task-details-progress {
+    width: 6.25rem;
+}
+
+.task-navigation ul.task-main-nav li {
+    padding: 0.5rem;
+    border-radius: var(--default-border);
+    border-radius: 0.3rem;
+    font-weight: 500;
+    &:hover a {
+      color: $primary;
+    }
+    &.active div {
+      color: $primary;
+    }
+  }
+  .task-pending-card {
+    border-inline-start: 0.45rem solid rgba(var(--secondary-rgb), 0.4) !important;
+  }
+  .task-inprogress-card {
+    border-inline-start: 0.45rem solid rgba(var(--primary-rgb), 0.4) !important;
+  }
+  .task-completed-card {
+    border-inline-start: 0.45rem solid rgba(var(--success-rgb), 0.4) !important;
+  }
+  .task-pending-card,
+  .task-inprogress-card,
+  .task-completed-card {
+    .card-body {
+      position: relative;
+      .badge {
+        position: absolute;
+        inset-block-end: 1.25rem;
+        inset-inline-end: 1.25rem;
+      }
+    }
+    &:hover {
+      box-shadow: 0 0.25rem 1rem $black-1;
+    }
+  }
+  .task-tabs-container {
+    .tab-pane {
+      min-height: calc(100vh - 22rem);
+      border: 0;
+    }
+  }
+  
+  @media (min-width: 576px) {
+    .task-search{
+      position: relative;
+      width: 300px;
+    //   margin-inline-start: -20px;
+        .search-icon{
+          position: absolute;
+          z-index: 9;
+          inset-inline-end: 1rem;
+          inset-block-start: .4rem;
+          color: var(--text-muted);
+        }
+      }
+      .wd-300{
+        width: 300px;
+      }
+      .w-sm-30{
+        width: 30% !important;
+      }
+    }
+    
+  @media (max-width: 575px) {
+    .task-search{
+      position: relative;
+        .search-icon{
+          position: absolute;
+          z-index: 9;
+          inset-inline-end: 1.3rem;
+          inset-block-start: 0.4rem;
+          color: var(--text-muted);
+        }
+      }
+      .synto-kanban-board{
+        display: block !important;
+      }
+      .synto-kanban-board .kanban-tasks-type{
+        min-width: 18rem !important;
+      }
+  }
+/* End::task-details */

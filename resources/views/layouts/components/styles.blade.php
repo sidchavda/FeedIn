@@ -1,0 +1,22 @@
+
+        <!-- Choices JS -->
+        <script src="{{asset('build/assets/libs/choices.js/public/assets/scripts/choices.min.js')}}"></script>
+
+        <!-- Bootstrap Css -->
+        <link id="style" href="{{asset('build/assets/libs/bootstrap/css/bootstrap.min.css')}}" rel="stylesheet" >
+
+        <!-- Node Waves Css -->
+        <link href="{{asset('build/assets/libs/node-waves/waves.min.css')}}" rel="stylesheet" >
+
+        <!-- Simplebar Css -->
+        <link href="{{asset('build/assets/libs/simplebar/simplebar.min.css')}}" rel="stylesheet" >
+
+        <!-- Color Picker Css -->
+        <link rel="stylesheet" href="{{asset('build/assets/libs/flatpickr/flatpickr.min.css')}}">
+        <link rel="stylesheet" href="{{asset('build/assets/libs/@simonwep/pickr/themes/nano.min.css')}}">
+
+        <!-- Choices Css -->
+        <link rel="stylesheet" href="{{asset('build/assets/libs/choices.js/public/assets/styles/choices.min.css')}}">
+
+        <!-- Sweetalerts CSS -->
+        <link rel="stylesheet" href="{{asset('build/assets/libs/sweetalert2/sweetalert2.min.css')}}">

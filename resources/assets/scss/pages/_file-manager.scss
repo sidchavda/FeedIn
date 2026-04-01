@@ -1,0 +1,33 @@
+
+.storage-circle{
+  position: relative;
+  width:10rem;
+  height: 10rem;
+  .storage-value{
+    position: absolute;
+    text-align: center;
+    inset-block: 4.2rem;
+    ;
+  }
+
+}
+.options-drop{
+  position: absolute;
+  height: 1rem;
+  inset-inline-end: 0px;
+}
+.options-drop2{
+  position: absolute;
+  height: 1rem;
+  inset-inline-end: 18px;
+  inset-block: 18px;
+}
+.star-icon{
+  position: absolute;
+  height: 1rem;
+  inset-inline-start: 18px;
+  inset-block: 18px;
+}
+img.file-manager-list{
+  border-radius: $default-radius $default-radius 0px 0px ;
+}

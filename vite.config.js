@@ -1,0 +1,140 @@
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import { viteStaticCopy } from 'vite-plugin-static-copy'
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            input: [
+
+                'resources/css/app.css', 
+                'resources/sass/app.scss', 
+                'resources/js/app.js',
+
+                // Resources assets js file paths
+                'resources/assets/js/about',
+                'resources/assets/js/add-products',
+                'resources/assets/js/alerts',
+                'resources/assets/js/apexchart',
+                'resources/assets/js/authentication-main',
+                'resources/assets/js/authentication',
+                'resources/assets/js/blog-create',
+                'resources/assets/js/canada',
+                'resources/assets/js/cart',
+                'resources/assets/js/chartjs-charts',
+                'resources/assets/js/checkout',
+                'resources/assets/js/choices',
+                'resources/assets/js/color-picker',
+                'resources/assets/js/coming-soon',
+                'resources/assets/js/contacts',
+                'resources/assets/js/create-invoice',
+                'resources/assets/js/create-project',
+                'resources/assets/js/custom-switcher',
+                'resources/assets/js/datatables',
+                'resources/assets/js/date&time_pickers',
+                'resources/assets/js/defaultmenu',
+                'resources/assets/js/draggable-cards',
+                'resources/assets/js/echarts',
+                'resources/assets/js/edit-products',
+                'resources/assets/js/editdata',
+                'resources/assets/js/error',
+                'resources/assets/js/file-details',
+                'resources/assets/js/file-manager',
+                'resources/assets/js/filemanager',
+                'resources/assets/js/fileupload',
+                'resources/assets/js/form-input-mask',
+                'resources/assets/js/fullcalendar',
+                'resources/assets/js/gallery',
+                'resources/assets/js/google-maps',
+                'resources/assets/js/grid',
+                'resources/assets/js/index-2',
+                'resources/assets/js/index-3',
+                'resources/assets/js/index-4',
+                'resources/assets/js/index-5',
+                'resources/assets/js/index-6',
+                'resources/assets/js/index-7',
+                'resources/assets/js/index-8',
+                'resources/assets/js/index-9',
+                'resources/assets/js/index-10',
+                'resources/assets/js/index-11',
+                'resources/assets/js/index-12',
+                'resources/assets/js/index',
+                'resources/assets/js/invoice-list',
+                'resources/assets/js/invoice',
+                'resources/assets/js/italy',
+                'resources/assets/js/jsvectormap',
+                'resources/assets/js/landing',
+                'resources/assets/js/leaflet',
+                'resources/assets/js/mail-inbox',
+                'resources/assets/js/mail-settings',
+                'resources/assets/js/mail',
+                'resources/assets/js/masonry',
+                'resources/assets/js/modal',
+                'resources/assets/js/notifications',
+                'resources/assets/js/nouislider',
+                'resources/assets/js/nft-dashboard',
+                'resources/assets/js/prism-custom',
+                'resources/assets/js/product-details',
+                'resources/assets/js/product-list',
+                'resources/assets/js/profile-settings',
+                'resources/assets/js/profile',
+                'resources/assets/js/quill-editor',
+                'resources/assets/js/ratings',
+                'resources/assets/js/reviews',
+                'resources/assets/js/russia',
+                'resources/assets/js/select2',
+                'resources/assets/js/simplebar',
+                'resources/assets/js/spain',
+                'resources/assets/js/sweet-alerts',
+                'resources/assets/js/swiper',
+                'resources/assets/js/tabulator',
+                'resources/assets/js/task-kanban-board',
+                'resources/assets/js/task-list',
+                'resources/assets/js/team',
+                'resources/assets/js/terms_conditions',
+                'resources/assets/js/Toasts',
+                'resources/assets/js/todolist',
+                'resources/assets/js/tom-select',
+                'resources/assets/js/treeview',
+                'resources/assets/js/us-merc-en',
+                'resources/assets/js/validation',
+                'resources/assets/js/widgets',
+                'resources/assets/js/wishlist',
+
+            ],
+            refresh: true,
+        }),
+        viteStaticCopy({
+            targets: [
+              {
+                src: ([
+                    'resources/assets/img/',
+                    'resources/assets/libs/',
+                    'resources/assets/icon-fonts/',
+                    'resources/assets/js/main.js',
+                    'resources/assets/js/sticky.js',
+                    'resources/assets/js/under-maintenance.js',
+                    'resources/assets/js/two-step-verification.js',
+                    'resources/assets/js/dataseries.js',
+                    'resources/assets/js/apexcharts-stock-prices.js',
+                    'resources/assets/js/products.js',
+                    'resources/assets/js/show-password.js',
+                    'resources/assets/js/chat.js',
+                ]),
+                dest: 'assets/'
+              }
+            ]
+        }),
+        {
+            name: 'blade',
+            handleHotUpdate({ file, server }) {
+                if (file.endsWith('.blade.php')) {
+                    server.ws.send({
+                        type: 'full-reload',
+                        path: '*',
+                    });
+                }
+            },
+        }
+    ],
+});
