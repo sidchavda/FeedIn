@@ -21,9 +21,23 @@ class CategoryController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
         
-        // Filter by language
+        // Filter by single or multiple language IDs
         if ($request->has('language_id') && !empty($request->language_id)) {
-            $query->where('language_id', $request->language_id);
+            $languageIds = $request->language_id;
+            
+            // Handle array of language IDs (e.g., language_id[]=1&language_id[]=2)
+            if (is_array($languageIds)) {
+                $query->whereIn('language_id', $languageIds);
+            } 
+            // Handle comma-separated string (e.g., language_id=1,2,3)
+            elseif (str_contains($languageIds, ',')) {
+                $languageIdsArray = explode(',', $languageIds);
+                $query->whereIn('language_id', $languageIdsArray);
+            } 
+            // Handle single language ID
+            else {
+                $query->where('language_id', $languageIds);
+            }
         }
         
         // Filter by status
