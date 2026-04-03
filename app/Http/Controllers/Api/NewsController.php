@@ -79,7 +79,9 @@ class NewsController extends Controller
                 $item->full_image_url = null;
             }
             // Add category as single key with just the name
-            $item->category = $item->category ? $item->category->name : null;
+            $categoryName = $item->category ? $item->category->name : null;
+            unset($item->category);
+            $item->category = $categoryName;
             unset($item->category_id);
             return $item;
         });
