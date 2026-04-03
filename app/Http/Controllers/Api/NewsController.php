@@ -30,9 +30,19 @@ class NewsController extends Controller
             $query->where('language_id', $request->language_id);
         }
         
-        // Filter by category
+        // Filter by single or multiple category IDs (comma-separated)
         if ($request->has('category_id') && !empty($request->category_id)) {
-            $query->where('category_id', $request->category_id);
+            $categoryIds = $request->category_id;
+            
+            // Handle comma-separated string (e.g., category_id=1,2,3)
+            if (str_contains($categoryIds, ',')) {
+                $categoryIdsArray = explode(',', $categoryIds);
+                $query->whereIn('category_id', $categoryIdsArray);
+            } 
+            // Handle single category ID
+            else {
+                $query->where('category_id', $categoryIds);
+            }
         }
         
         // Filter by country

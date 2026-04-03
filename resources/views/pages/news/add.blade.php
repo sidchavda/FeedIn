@@ -1,7 +1,13 @@
 @extends('layouts.master')
 
 @section('styles')
-
+    <!-- CKEditor 5 Free Version -->
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+    <style>
+        .ck-editor__editable {
+            min-height: 400px !important;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -106,7 +112,7 @@
                                 
                                 <div class="mb-3">
                                     <label for="description" class="form-label">Description</label>
-                                    <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="4">@if(isset($news->id)){{ $news->description }}@elseif(old('description')){{ old('description') }}@endif</textarea>
+                                    <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="15">@if(isset($news->id)){{ $news->description }}@elseif(old('description')){{ old('description') }}@endif</textarea>
                                     @error('description')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -158,6 +164,23 @@
 
 @section('scripts')
     <script>
+        // Initialize CKEditor with increased height
+        ClassicEditor
+            .create(document.querySelector('#description'), {
+                toolbar: ['heading', '|', 'bold', 'italic', 'underline', 'strikethrough', '|', 'link', 'bulletedList', 'numberedList', '|', 'undo', 'redo'],
+                placeholder: 'Enter description here...'
+            })
+            .then(editor => {
+                console.log('CKEditor initialized');
+                // Set editor height
+                editor.editing.view.change(writer => {
+                    writer.setStyle('min-height', '400px', editor.editing.view.document.getRoot());
+                });
+            })
+            .catch(error => {
+                console.error('CKEditor error:', error);
+            });
+
         // Store selected values for edit mode
         const selectedCategoryId = {{ isset($news->category_id) && $news->category_id ? $news->category_id : 'null' }};
         const selectedStateId = {{ isset($news->state_id) && $news->state_id ? $news->state_id : 'null' }};
@@ -232,12 +255,14 @@
                 });
         });
     </script>
+    
     // Trigger change event on page load if language is already selected
     @if(old('language_id') || (isset($news) && $news->language_id))
     <script>
         document.getElementById('language_id').dispatchEvent(new Event('change'));
     </script>
     @endif
+    
     // Trigger change event on page load if country is already selected
     @if(old('country_id') || (isset($news) && $news->country_id))
     <script>
