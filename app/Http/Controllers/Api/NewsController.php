@@ -13,7 +13,9 @@ class NewsController extends Controller
      */
     public function index(Request $request)
     {
-        $query = News::select('title','link', 'author', 'description', 'image', 'created_at')->where('status', 1);
+        $query = News::select('id', 'title', 'link', 'author', 'description', 'image', 'created_at', 'category_id')
+            ->with(['category:id,name'])
+            ->where('status', 1);
         
         // Search by title, author, or description
         if ($request->has('search') && !empty($request->search)) {
@@ -69,13 +71,16 @@ class NewsController extends Controller
         // Get items for current page
         $items = $query->skip($offset)->take($perPage)->get();
         
-        // Transform items to add full image URL
+        // Transform items to add full image URL and category name as single key
         $items->transform(function ($item) {
             if ($item->image) {
                 $item->full_image_url = asset($item->image);
             } else {
                 $item->full_image_url = null;
             }
+            // Add category as single key with just the name
+            $item->category = $item->category ? $item->category->name : null;
+            unset($item->category_id);
             return $item;
         });
         

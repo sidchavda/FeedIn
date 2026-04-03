@@ -2,12 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ApiToken;
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\User;
 use Symfony\Component\HttpFoundation\Response;
 
-class APITokenAuth
+class ApiTokenAuth
 {
     /**
      * Handle an incoming request.
@@ -16,42 +16,39 @@ class APITokenAuth
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Try to get token from Authorization header first
-        $token = $request->header('Authorization');
+        $token = $request->bearerToken();
         
-        // If not found, try other common header names
         if (!$token) {
-            $token = $request->header('X-API-Token') ?? $request->header('token');
+            $token = $request->header('X-API-Token');
         }
         
-        // Check if token exists
         if (!$token) {
             return response()->json([
                 'success' => false,
-                'message' => 'Authorization token is required',
-                'error' => 'MISSING_TOKEN'
+                'message' => 'API token required. Provide via Authorization: Bearer header or X-API-Token header.'
             ], 401);
         }
 
-        // Extract token from Bearer format if present
-        if (str_starts_with($token, 'Bearer ')) {
-            $token = substr($token, 7); // Remove 'Bearer ' prefix
-        }
+        $apiToken = ApiToken::where('token', $token)->first();
         
-        // Find user by hashed token
-        $user = User::where('api_token', hash('sha256', $token))->first();
-        
-        if (!$user) {
+        if (!$apiToken) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid or expired token',
-                'error' => 'INVALID_TOKEN'
+                'message' => 'Invalid API token'
             ], 401);
         }
 
-        // Add user to request for use in controllers
-        $request->merge(['created_by' => $user->id]);
-        
+        if ($apiToken->isExpired()) {
+            $apiToken->delete();
+            return response()->json([
+                'success' => false,
+                'message' => 'API token has expired'
+            ], 401);
+        }
+
+        $apiToken->update(['last_used_at' => now()]);
+        $request->attributes->add(['api_token' => $apiToken]);
+
         return $next($request);
     }
 } 
