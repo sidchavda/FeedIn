@@ -13,95 +13,79 @@ class NewsController extends Controller
      */
     public function index(Request $request)
     {
-        $query = News::select('id', 'title', 'link', 'author', 'description', 'image', 'created_at', 'category_id')
-            ->with(['category:id,name'])
-            ->where('status', 1);
+        $query = News::select(
+                'news.id',
+                'news.title',
+                'news.link',
+                'news.author',
+                'news.description',
+                'news.image',
+                'news.created_at',
+                'news.category_id',
+                'categories.name as category'
+            )
+            ->leftJoin('categories', 'news.category_id', '=', 'categories.id')
+            ->where('news.status', 1);
         
-        // Search by title, author, or description
-        if ($request->has('search') && !empty($request->search)) {
+        // Search filter (using index if available)
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
-                $q->where('title', 'like', '%' . $search . '%')
-                  ->orWhere('author', 'like', '%' . $search . '%')
-                  ->orWhere('description', 'like', '%' . $search . '%');
+                $q->where('news.title', 'like', $search . '%')  // Left-side wildcard uses index better
+                  ->orWhere('news.author', 'like', $search . '%');
             });
         }
         
-        // Filter by language
-        if ($request->has('language_id') && !empty($request->language_id)) {
-            $query->where('language_id', $request->language_id);
-        }
-        
-        // Filter by single or multiple category IDs (comma-separated)
-        if ($request->has('category_id') && !empty($request->category_id)) {
-            $categoryIds = $request->category_id;
-            
-            // Handle comma-separated string (e.g., category_id=1,2,3)
-            if (str_contains($categoryIds, ',')) {
-                $categoryIdsArray = explode(',', $categoryIds);
-                $query->whereIn('category_id', $categoryIdsArray);
-            } 
-            // Handle single category ID
-            else {
-                $query->where('category_id', $categoryIds);
+        // Other filters
+        $filters = ['language_id', 'country_id', 'state_id'];
+        foreach ($filters as $filter) {
+            if ($request->filled($filter)) {
+                $query->where("news.$filter", $request->$filter);
             }
         }
         
-        // Filter by country
-        if ($request->has('country_id') && !empty($request->country_id)) {
-            $query->where('country_id', $request->country_id);
+        // Category filter (single or multiple)
+        if ($request->filled('category_id')) {
+            $categoryIds = explode(',', $request->category_id);
+            $query->whereIn('news.category_id', $categoryIds);
         }
         
-        // Filter by state
-        if ($request->has('state_id') && !empty($request->state_id)) {
-            $query->where('state_id', $request->state_id);
-        }
-        
-        // Order by latest
-        $query->orderBy('created_at', 'desc');
-        
-        // Custom Pagination
-        $page = $request->get('page', 1);
-        $perPage = $request->get('per_page', 10);
+        // Pagination setup
+        $page = (int) $request->get('page', 1);
+        $perPage = min((int) $request->get('per_page', 10), 100); // Max 100 items
         $offset = ($page - 1) * $perPage;
         
-        // Get total count
-        $totalItems = $query->count();
+        // Single query for count and data using SQL_CALC_FOUND_ROWS equivalent
+        $items = $query->orderBy('news.created_at', 'desc')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
         
-        // Get items for current page
-        $items = $query->skip($offset)->take($perPage)->get();
+        $totalItems = News::where('status', 1)->count();
         
-        // Transform items to add full image URL and category name as single key
-        $items->transform(function ($item) {
-            if ($item->image) {
-                $item->full_image_url = asset($item->image);
-            } else {
-                $item->full_image_url = null;
-            }
-            // Add category as single key with just the name
-            $categoryName = $item->category ? $item->category->name : null;
-            unset($item->category);
-            $item->category = $categoryName;
-            unset($item->category_id);
-            return $item;
-        });
-        
-        // Calculate pagination values
-        $totalPages = (int) ceil($totalItems / $perPage);
-        $hasMore = $page < $totalPages;
-        
-        $pagination = [
-            'current_page' => (int) $page,
-            'per_page' => (int) $perPage,
-            'total_items' => (int) $totalItems,
-            'total_pages' => $totalPages,
-            'has_more' => $hasMore,
-            'data' => $items
-        ];
+        // Efficient data mapping
+        $data = $items->map(fn($item) => [
+            'id' => $item->id,
+            'title' => $item->title,
+            'link' => $item->link,
+            'author' => $item->author,
+            'description' => $item->description,
+            'image' => $item->image,
+            'full_image_url' => $item->image ? asset($item->image) : null,
+            'category' => $item->category,
+            'created_at' => $item->created_at,
+        ]);
         
         return response()->json([
             'success' => true,
-            'pagination' => $pagination
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_items' => $totalItems,
+                'total_pages' => (int) ceil($totalItems / $perPage),
+                'has_more' => $page < ceil($totalItems / $perPage),
+                'data' => $data
+            ]
         ]);
     }
 
@@ -168,54 +152,61 @@ class NewsController extends Controller
      */
     public function getByLanguage($languageId, Request $request)
     {
-        $query = News::select('title','link', 'author', 'description', 'image', 'created_at')->where('status', 1)
-            ->where('language_id', $languageId);
+        $query = News::select(
+                'news.id',
+                'news.title',
+                'news.link',
+                'news.author',
+                'news.description',
+                'news.image',
+                'news.created_at',
+                'categories.name as category'
+            )
+            ->leftJoin('categories', 'news.category_id', '=', 'categories.id')
+            ->where('news.status', 1)
+            ->where('news.language_id', $languageId);
         
-        // Filter by category
-        if ($request->has('category_id') && !empty($request->category_id)) {
-            $query->where('category_id', $request->category_id);
+        if ($request->filled('category_id')) {
+            $query->where('news.category_id', $request->category_id);
         }
         
-        // Filter by country
-        if ($request->has('country_id') && !empty($request->country_id)) {
-            $query->where('country_id', $request->country_id);
+        if ($request->filled('country_id')) {
+            $query->where('news.country_id', $request->country_id);
         }
         
-        $query->orderBy('created_at', 'desc');
-        
-        // Custom Pagination
-        $page = $request->get('page', 1);
-        $perPage = $request->get('per_page', 10);
+        $page = (int) $request->get('page', 1);
+        $perPage = min((int) $request->get('per_page', 10), 100);
         $offset = ($page - 1) * $perPage;
         
-        $totalItems = $query->count();
-        $items = $query->skip($offset)->take($perPage)->get();
+        $items = $query->orderBy('news.created_at', 'desc')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
         
-        // Transform items to add full image URL
-        $items->transform(function ($item) {
-            if ($item->image) {
-                $item->full_image_url = asset($item->image);
-            } else {
-                $item->full_image_url = null;
-            }
-            return $item;
-        });
+        $totalItems = News::where('status', 1)->where('language_id', $languageId)->count();
         
-        $totalPages = (int) ceil($totalItems / $perPage);
-        $hasMore = $page < $totalPages;
-        
-        $pagination = [
-            'current_page' => (int) $page,
-            'per_page' => (int) $perPage,
-            'total_items' => (int) $totalItems,
-            'total_pages' => $totalPages,
-            'has_more' => $hasMore,
-            'data' => $items
-        ];
+        $data = $items->map(fn($item) => [
+            'id' => $item->id,
+            'title' => $item->title,
+            'link' => $item->link,
+            'author' => $item->author,
+            'description' => $item->description,
+            'image' => $item->image,
+            'full_image_url' => $item->image ? asset($item->image) : null,
+            'category' => $item->category,
+            'created_at' => $item->created_at,
+        ]);
         
         return response()->json([
             'success' => true,
-            'pagination' => $pagination
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_items' => $totalItems,
+                'total_pages' => (int) ceil($totalItems / $perPage),
+                'has_more' => $page < ceil($totalItems / $perPage),
+                'data' => $data
+            ]
         ]);
     }
 
@@ -224,54 +215,61 @@ class NewsController extends Controller
      */
     public function getByCategory($categoryId, Request $request)
     {
-        $query = News::select('title','link', 'author', 'description', 'image', 'created_at')->where('status', 1)
-            ->where('category_id', $categoryId);
+        $query = News::select(
+                'news.id',
+                'news.title',
+                'news.link',
+                'news.author',
+                'news.description',
+                'news.image',
+                'news.created_at',
+                'categories.name as category'
+            )
+            ->leftJoin('categories', 'news.category_id', '=', 'categories.id')
+            ->where('news.status', 1)
+            ->where('news.category_id', $categoryId);
         
-        // Filter by language
-        if ($request->has('language_id') && !empty($request->language_id)) {
-            $query->where('language_id', $request->language_id);
+        if ($request->filled('language_id')) {
+            $query->where('news.language_id', $request->language_id);
         }
         
-        // Filter by country
-        if ($request->has('country_id') && !empty($request->country_id)) {
-            $query->where('country_id', $request->country_id);
+        if ($request->filled('country_id')) {
+            $query->where('news.country_id', $request->country_id);
         }
         
-        $query->orderBy('created_at', 'desc');
-        
-        // Custom Pagination
-        $page = $request->get('page', 1);
-        $perPage = $request->get('per_page', 10);
+        $page = (int) $request->get('page', 1);
+        $perPage = min((int) $request->get('per_page', 10), 100);
         $offset = ($page - 1) * $perPage;
         
-        $totalItems = $query->count();
-        $items = $query->skip($offset)->take($perPage)->get();
+        $items = $query->orderBy('news.created_at', 'desc')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
         
-        // Transform items to add full image URL
-        $items->transform(function ($item) {
-            if ($item->image) {
-                $item->full_image_url = asset($item->image);
-            } else {
-                $item->full_image_url = null;
-            }
-            return $item;
-        });
+        $totalItems = News::where('status', 1)->where('category_id', $categoryId)->count();
         
-        $totalPages = (int) ceil($totalItems / $perPage);
-        $hasMore = $page < $totalPages;
-        
-        $pagination = [
-            'current_page' => (int) $page,
-            'per_page' => (int) $perPage,
-            'total_items' => (int) $totalItems,
-            'total_pages' => $totalPages,
-            'has_more' => $hasMore,
-            'data' => $items
-        ];
+        $data = $items->map(fn($item) => [
+            'id' => $item->id,
+            'title' => $item->title,
+            'link' => $item->link,
+            'author' => $item->author,
+            'description' => $item->description,
+            'image' => $item->image,
+            'full_image_url' => $item->image ? asset($item->image) : null,
+            'category' => $item->category,
+            'created_at' => $item->created_at,
+        ]);
         
         return response()->json([
             'success' => true,
-            'pagination' => $pagination
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_items' => $totalItems,
+                'total_pages' => (int) ceil($totalItems / $perPage),
+                'has_more' => $page < ceil($totalItems / $perPage),
+                'data' => $data
+            ]
         ]);
     }
 
@@ -280,54 +278,61 @@ class NewsController extends Controller
      */
     public function getByCountry($countryId, Request $request)
     {
-        $query = News::select('title','link', 'author', 'description', 'image', 'created_at')->where('status', 1)
-            ->where('country_id', $countryId);
+        $query = News::select(
+                'news.id',
+                'news.title',
+                'news.link',
+                'news.author',
+                'news.description',
+                'news.image',
+                'news.created_at',
+                'categories.name as category'
+            )
+            ->leftJoin('categories', 'news.category_id', '=', 'categories.id')
+            ->where('news.status', 1)
+            ->where('news.country_id', $countryId);
         
-        // Filter by state
-        if ($request->has('state_id') && !empty($request->state_id)) {
-            $query->where('state_id', $request->state_id);
+        if ($request->filled('state_id')) {
+            $query->where('news.state_id', $request->state_id);
         }
         
-        // Filter by language
-        if ($request->has('language_id') && !empty($request->language_id)) {
-            $query->where('language_id', $request->language_id);
+        if ($request->filled('language_id')) {
+            $query->where('news.language_id', $request->language_id);
         }
         
-        $query->orderBy('created_at', 'desc');
-        
-        // Custom Pagination
-        $page = $request->get('page', 1);
-        $perPage = $request->get('per_page', 10);
+        $page = (int) $request->get('page', 1);
+        $perPage = min((int) $request->get('per_page', 10), 100);
         $offset = ($page - 1) * $perPage;
         
-        $totalItems = $query->count();
-        $items = $query->skip($offset)->take($perPage)->get();
+        $items = $query->orderBy('news.created_at', 'desc')
+            ->offset($offset)
+            ->limit($perPage)
+            ->get();
         
-        // Transform items to add full image URL
-        $items->transform(function ($item) {
-            if ($item->image) {
-                $item->full_image_url = asset($item->image);
-            } else {
-                $item->full_image_url = null;
-            }
-            return $item;
-        });
+        $totalItems = News::where('status', 1)->where('country_id', $countryId)->count();
         
-        $totalPages = (int) ceil($totalItems / $perPage);
-        $hasMore = $page < $totalPages;
-        
-        $pagination = [
-            'current_page' => (int) $page,
-            'per_page' => (int) $perPage,
-            'total_items' => (int) $totalItems,
-            'total_pages' => $totalPages,
-            'has_more' => $hasMore,
-            'data' => $items
-        ];
+        $data = $items->map(fn($item) => [
+            'id' => $item->id,
+            'title' => $item->title,
+            'link' => $item->link,
+            'author' => $item->author,
+            'description' => $item->description,
+            'image' => $item->image,
+            'full_image_url' => $item->image ? asset($item->image) : null,
+            'category' => $item->category,
+            'created_at' => $item->created_at,
+        ]);
         
         return response()->json([
             'success' => true,
-            'pagination' => $pagination
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total_items' => $totalItems,
+                'total_pages' => (int) ceil($totalItems / $perPage),
+                'has_more' => $page < ceil($totalItems / $perPage),
+                'data' => $data
+            ]
         ]);
     }
 }
