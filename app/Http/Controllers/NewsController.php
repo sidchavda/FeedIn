@@ -73,6 +73,9 @@ class NewsController extends Controller
         
         // Handle status field (checkbox returns nothing when unchecked)
         $data['status'] = $request->has('status') ? 1 : 0;
+        
+        // Handle push_notification field (checkbox returns nothing when unchecked)
+        $data['push_notification'] = $request->has('push_notification') ? 1 : 0;
 
         if ($request->hasFile('image')) {
             $imageName = time() . '.' . $request->image->extension();
@@ -113,6 +116,9 @@ class NewsController extends Controller
         
         // Handle status field (checkbox returns nothing when unchecked)
         $data['status'] = $request->has('status') ? 1 : 0;
+        
+        // Handle push_notification field (checkbox returns nothing when unchecked)
+        $data['push_notification'] = $request->has('push_notification') ? 1 : 0;
 
         if ($request->hasFile('image')) {
             $imageName = time() . '.' . $request->image->extension();

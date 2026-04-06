@@ -22,6 +22,7 @@ class News extends Model
         'image',
         'author',
         'status',
+        'push_notification',
         'country_id',
         'state_id',
     ];

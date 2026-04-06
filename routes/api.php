@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\LanguageController;
 use App\Http\Controllers\Api\NewsController;
 use App\Http\Controllers\Api\ApiTokenController;
+use App\Http\Controllers\Api\UpdateProfileController;
 
 // Token generation (public - no auth required)
 Route::post('/token/generate', [ApiTokenController::class, 'generate'])->name('api.token.generate');
@@ -12,6 +13,9 @@ Route::post('/token/generate', [ApiTokenController::class, 'generate'])->name('a
 // Protected routes that require token authentication
 // Route::middleware(['api.token'])->group(function () {
     
+    // Profile update API
+    Route::post('/profile/update', [UpdateProfileController::class, 'update'])->name('api.profile.update');
+
     Route::post('/token/verify', [ApiTokenController::class, 'verify'])->name('api.token.verify');
     Route::post('/token/revoke', [ApiTokenController::class, 'revoke'])->name('api.token.revoke');
     Route::get('/tokens', [ApiTokenController::class, 'list'])->name('api.token.list');

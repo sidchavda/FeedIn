@@ -144,6 +144,12 @@
                                         @if(old('status', isset($news) ? $news->status : 1) == 1) checked @endif>
                                     <label class="form-check-label" for="newsStatus">Status (Active or Deactive)</label>
                                 </div>
+
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="pushNotification" name="push_notification" value="1"
+                                        @if(old('push_notification', isset($news) ? $news->push_notification : 0) == 1) checked @endif>
+                                    <label class="form-check-label" for="pushNotification">Push Notification (Send notification when published)</label>
+                                </div>
                                 
                                 <div class="mb-3">
                                     <button class="btn btn-primary" type="submit">Submit</button>
