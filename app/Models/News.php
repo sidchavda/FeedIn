@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class News extends Model
 {
@@ -12,6 +13,7 @@ class News extends Model
 
     protected $fillable = [
         'title',
+        'slug',
         'link',
         'language_id',
         'category_id',
@@ -23,6 +25,35 @@ class News extends Model
         'country_id',
         'state_id',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($news) {
+            $news->slug = $news->generateUniqueSlug($news->title);
+        });
+
+        static::updating(function ($news) {
+            if ($news->isDirty('title')) {
+                $news->slug = $news->generateUniqueSlug($news->title);
+            }
+        });
+    }
+
+    public function generateUniqueSlug($title)
+    {
+        $slug = Str::slug($title);
+        $originalSlug = $slug;
+        $count = 1;
+
+        while (static::where('slug', $slug)->where('id', '!=', $this->id ?? 0)->exists()) {
+            $slug = $originalSlug . '-' . $count;
+            $count++;
+        }
+
+        return $slug;
+    }
 
     public function language(): BelongsTo
     {
