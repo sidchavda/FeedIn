@@ -21,6 +21,7 @@ class RegistrationController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'nullable|string|min:6',
             'mobile' => 'nullable|string|unique:users|max:20',
+            'source' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -40,6 +41,7 @@ class RegistrationController extends Controller
             'password' => Hash::make($password),
             'mobile' => $request->mobile,
             'is_admin' => 0,
+            'source' => $request->source ?? 'api',
         ]);
 
         // Generate API token
@@ -55,6 +57,7 @@ class RegistrationController extends Controller
                     'email' => $user->email,
                     'mobile' => $user->mobile,
                     'is_admin' => $user->is_admin,
+                    'source' => $user->source,
                 ],
                 'token' => $token,
                 'password_generated' => $request->password ? false : true,
