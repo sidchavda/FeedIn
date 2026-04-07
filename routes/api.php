@@ -7,10 +7,14 @@ use App\Http\Controllers\Api\NewsController;
 use App\Http\Controllers\Api\ApiTokenController;
 use App\Http\Controllers\Api\UpdateProfileController;
 use App\Http\Controllers\Api\DeviceTokenController;
+use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\PushNotificationController;
 
 // Token generation (public - no auth required)
 Route::post('/token/generate', [ApiTokenController::class, 'generate'])->name('api.token.generate');
+
+// User Registration API (public - no auth required)
+Route::post('/register', [RegistrationController::class, 'register'])->name('api.register');
 
 // Protected routes that require token authentication
 // Route::middleware(['api.token'])->group(function () {
