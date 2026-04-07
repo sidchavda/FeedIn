@@ -3,11 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\News;
+use App\Models\DeviceToken;
+use App\Services\FCMService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class PushNotificationController extends Controller
 {
+    protected $fcmService;
+
+    public function __construct(FCMService $fcmService)
+    {
+        $this->fcmService = $fcmService;
+    }
+
     /**
      * Send push notification for a news item
      */
@@ -24,16 +33,39 @@ class PushNotificationController extends Controller
                 ], 400);
             }
             
-            // Send push notification logic here
-            // This is a placeholder - you can integrate with Firebase, OneSignal, etc.
-            $result = $this->sendPushNotification($news);
+            // Get all device tokens
+            $deviceTokens = DeviceToken::pluck('device_token')->toArray();
+            
+            if (empty($deviceTokens)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No device tokens found'
+                ], 400);
+            }
+            
+            // Prepare notification data
+            $title = 'New News: ' . $news->title;
+            $body = substr(strip_tags($news->description), 0, 100) . '...';
+            $data = [
+                'news_id' => $news->id,
+                'slug' => $news->slug,
+                'type' => 'news',
+            ];
+            
+            // Send to all devices
+            if (count($deviceTokens) > 1) {
+                $result = $this->fcmService->sendToMultipleDevices($deviceTokens, $title, $body, $data);
+            } else {
+                $result = $this->fcmService->sendToDevice($deviceTokens[0], $title, $body, $data);
+            }
             
             if ($result) {
                 return response()->json([
                     'success' => true,
                     'message' => 'Push notification sent successfully',
                     'news_id' => $newsId,
-                    'title' => $news->title
+                    'title' => $news->title,
+                    'recipients_count' => count($deviceTokens)
                 ]);
             } else {
                 return response()->json([
@@ -96,19 +128,33 @@ class PushNotificationController extends Controller
     }
     
     /**
-     * Internal method to send actual push notification
-     * Integrate with your preferred service (Firebase, OneSignal, etc.)
+     * Send test notification to a single device
      */
-    private function sendPushNotification(News $news)
+    public function sendTestNotification(Request $request)
     {
-        // TODO: Implement actual push notification logic
-        // Example: Firebase Cloud Messaging, OneSignal, Pusher Beams, etc.
+        $request->validate([
+            'device_token' => 'required|string',
+            'title' => 'required|string',
+            'body' => 'required|string',
+        ]);
         
-        // Placeholder implementation
-        Log::info('Push notification sent for news: ' . $news->title);
+        $result = $this->fcmService->sendToDevice(
+            $request->device_token,
+            $request->title,
+            $request->body,
+            ['type' => 'test']
+        );
         
-        // Return true to simulate success
-        // Replace with actual notification service integration
-        return true;
+        if ($result) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Test notification sent successfully'
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send test notification'
+            ], 500);
+        }
     }
 }

@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\LanguageController;
 use App\Http\Controllers\Api\NewsController;
 use App\Http\Controllers\Api\ApiTokenController;
 use App\Http\Controllers\Api\UpdateProfileController;
+use App\Http\Controllers\Api\DeviceTokenController;
+use App\Http\Controllers\PushNotificationController;
 
 // Token generation (public - no auth required)
 Route::post('/token/generate', [ApiTokenController::class, 'generate'])->name('api.token.generate');
@@ -15,6 +17,18 @@ Route::post('/token/generate', [ApiTokenController::class, 'generate'])->name('a
     
     // Profile update API
     Route::post('/profile/update', [UpdateProfileController::class, 'update'])->name('api.profile.update');
+
+    // Device Token API Routes
+    Route::post('/device/register', [DeviceTokenController::class, 'register'])->name('api.device.register');
+    Route::get('/devices', [DeviceTokenController::class, 'list'])->name('api.device.list');
+    Route::put('/device/{id}', [DeviceTokenController::class, 'update'])->name('api.device.update');
+    Route::delete('/device/{id}', [DeviceTokenController::class, 'delete'])->name('api.device.delete');
+
+    // Push Notification API Routes
+    Route::post('/push/send/{newsId}', [PushNotificationController::class, 'sendNotification'])->name('api.push.send');
+    Route::post('/push/toggle/{newsId}', [PushNotificationController::class, 'toggleNotification'])->name('api.push.toggle');
+    Route::get('/push/pending', [PushNotificationController::class, 'getPendingNotifications'])->name('api.push.pending');
+    Route::post('/push/test', [PushNotificationController::class, 'sendTestNotification'])->name('api.push.test');
 
     Route::post('/token/verify', [ApiTokenController::class, 'verify'])->name('api.token.verify');
     Route::post('/token/revoke', [ApiTokenController::class, 'revoke'])->name('api.token.revoke');
