@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\ApiToken;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class ApiTokenAuth
 {
@@ -29,26 +29,32 @@ class ApiTokenAuth
             ], 401);
         }
 
-        $apiToken = ApiToken::where('token', $token)->first();
+        // Find Sanctum token (format: id|tokenhash)
+        $accessToken = PersonalAccessToken::findToken($token);
         
-        if (!$apiToken) {
+        if (!$accessToken) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid API token'
             ], 401);
         }
 
-        if ($apiToken->isExpired()) {
-            $apiToken->delete();
+        // Check if token is valid
+        if (!$accessToken->tokenable) {
             return response()->json([
                 'success' => false,
-                'message' => 'API token has expired'
+                'message' => 'Token user not found'
             ], 401);
         }
 
-        $apiToken->update(['last_used_at' => now()]);
-        $request->attributes->add(['api_token' => $apiToken]);
+        // Update last used timestamp
+        $accessToken->forceFill(['last_used_at' => now()])->save();
+        
+        // Set the authenticated user on the request
+        $request->setUserResolver(function () use ($accessToken) {
+            return $accessToken->tokenable;
+        });
 
         return $next($request);
     }
-} 
+}

@@ -55,13 +55,10 @@ class RegistrationController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'mobile' => $user->mobile,
-                    'is_admin' => $user->is_admin,
-                    'source' => $user->source,
                 ],
                 'token' => $token,
-                'password_generated' => $request->password ? false : true,
-                'password' => $request->password ? null : $password, // Only show if auto-generated
+                // 'password_generated' => $request->password ? false : true,
+                // 'password' => $request->password ? null : $password, // Only show if auto-generated
             ]
         ], 201);
     }
