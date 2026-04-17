@@ -27,12 +27,13 @@ Route::middleware(['api.token'])->group(function () {
     // Profile APIs
     Route::get('/profile', [ProfileController::class, 'getProfile'])->name('api.profile.get');
     Route::post('/profile/update', [UpdateProfileController::class, 'update'])->name('api.profile.update');
+
+    // Device Token API Routes
+    Route::post('/device/register', [DeviceTokenController::class, 'register'])->name('api.device.register');
+    Route::get('/devices', [DeviceTokenController::class, 'list'])->name('api.device.list');
+    Route::put('/device/{id}', [DeviceTokenController::class, 'update'])->name('api.device.update');
+    Route::delete('/device/{id}', [DeviceTokenController::class, 'delete'])->name('api.device.delete');
 });
-// Device Token API Routes
-Route::post('/device/register', [DeviceTokenController::class, 'register'])->name('api.device.register');
-Route::get('/devices', [DeviceTokenController::class, 'list'])->name('api.device.list');
-Route::put('/device/{id}', [DeviceTokenController::class, 'update'])->name('api.device.update');
-Route::delete('/device/{id}', [DeviceTokenController::class, 'delete'])->name('api.device.delete');
 
 // Push Notification API Routes
 Route::post('/push/send/{newsId}', [PushNotificationController::class, 'sendNotification'])->name('api.push.send');

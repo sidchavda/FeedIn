@@ -30,6 +30,13 @@ class DeviceTokenController extends Controller
 
         $user = $request->user();
 
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Please provide a valid token.'
+            ], 401);
+        }
+
         $deviceToken = DeviceToken::create([
             'user_id' => $user->id,
             'device_token' => $request->device_token,
