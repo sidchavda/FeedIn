@@ -168,7 +168,8 @@ class NewsController extends Controller
 
             // Prepare notification data (all values must be strings for Firebase)
             $title = $news->title;
-            $body = substr(strip_tags($news->description), 0, 100) . '...';
+            // $body = substr(strip_tags($news->description), 0, 100) . '...';
+            $body = "Check out this latest news!";
             $data = [
                 'news_id' => (string) $news->id,
                 'slug' => (string) $news->slug,
@@ -179,10 +180,16 @@ class NewsController extends Controller
             // Send to all devices
             $result = $this->fcmService->sendToMultipleDevices($deviceTokens, $title, $body, $data);
 
-            if ($result) {
-                // Log::info('Push notification sent successfully for news ID: ' . $news->id);
+            if ($result['success']) {
+                Log::info('Push notification sent for news ID: ' . $news->id, [
+                    'success_count' => $result['success_count'],
+                    'failure_count' => $result['failure_count'],
+                    'total_devices' => count($deviceTokens),
+                ]);
             } else {
-                Log::error('Failed to send push notification for news ID: ' . $news->id);
+                Log::error('Failed to send push notification for news ID: ' . $news->id, [
+                    'error' => $result['error'] ?? 'Unknown error',
+                ]);
             }
         } catch (\Exception $e) {
             Log::error('Error sending push notification: ' . $e->getMessage());

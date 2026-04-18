@@ -52,11 +52,20 @@ class FCMService
                 ->withNotification($notification)
                 ->withData($data);
 
-            $this->messaging->sendMulticast($message, $deviceTokens);
-            return true;
+            $response = $this->messaging->sendMulticast($message, $deviceTokens);
+            
+            return [
+                'success' => true,
+                'success_count' => $response->successes()->count(),
+                'failure_count' => $response->failures()->count(),
+                'responses' => $response->responses(),
+            ];
         } catch (MessagingException $e) {
             Log::error('FCM Multicast Error: ' . $e->getMessage());
-            return false;
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
