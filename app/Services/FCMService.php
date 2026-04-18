@@ -58,7 +58,6 @@ class FCMService
                 'success' => true,
                 'success_count' => $response->successes()->count(),
                 'failure_count' => $response->failures()->count(),
-                'responses' => $response->responses(),
             ];
         } catch (MessagingException $e) {
             Log::error('FCM Multicast Error: ' . $e->getMessage());
