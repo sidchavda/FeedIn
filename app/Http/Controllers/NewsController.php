@@ -166,12 +166,12 @@ class NewsController extends Controller
                 return;
             }
 
-            // Prepare notification data
+            // Prepare notification data (all values must be strings for Firebase)
             $title = 'New News: ' . $news->title;
             $body = substr(strip_tags($news->description), 0, 100) . '...';
             $data = [
-                'news_id' => $news->id,
-                'slug' => $news->slug,
+                'news_id' => (string) $news->id,
+                'slug' => (string) $news->slug,
                 'type' => 'news',
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
             ];
@@ -180,7 +180,7 @@ class NewsController extends Controller
             $result = $this->fcmService->sendToMultipleDevices($deviceTokens, $title, $body, $data);
 
             if ($result) {
-                Log::info('Push notification sent successfully for news ID: ' . $news->id);
+                // Log::info('Push notification sent successfully for news ID: ' . $news->id);
             } else {
                 Log::error('Failed to send push notification for news ID: ' . $news->id);
             }
