@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\LoginController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\SavedNewsController;
 use App\Http\Controllers\PushNotificationController;
 
 // Token generation (public - no auth required)
@@ -35,6 +36,11 @@ Route::middleware(['api.token'])->group(function () {
     Route::get('/devices', [DeviceTokenController::class, 'list'])->name('api.device.list');
     Route::put('/device/{id}', [DeviceTokenController::class, 'update'])->name('api.device.update');
     Route::delete('/device/{id}', [DeviceTokenController::class, 'delete'])->name('api.device.delete');
+
+    // Saved News API Routes (protected)
+    Route::post('/news/{newsId}/save', [SavedNewsController::class, 'toggle'])->name('api.news.save');
+    Route::get('/saved-news', [SavedNewsController::class, 'list'])->name('api.saved-news.list');
+    Route::get('/news/{newsId}/is-saved', [SavedNewsController::class, 'check'])->name('api.news.is-saved');
 });
 
 // Push Notification API Routes
