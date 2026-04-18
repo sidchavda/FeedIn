@@ -167,7 +167,7 @@ class NewsController extends Controller
             }
 
             // Prepare notification data (all values must be strings for Firebase)
-            $title = 'New News: ' . $news->title;
+            $title = $news->title;
             $body = substr(strip_tags($news->description), 0, 100) . '...';
             $data = [
                 'news_id' => (string) $news->id,
