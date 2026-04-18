@@ -21,6 +21,9 @@ Route::post('/register', [RegistrationController::class, 'register'])->name('api
 // User Login API (public - no auth required)
 Route::post('/login', [LoginController::class, 'login'])->name('api.login');
 
+// Device Token Registration API (public - no auth required for registration)
+Route::post('/device/register', [DeviceTokenController::class, 'register'])->name('api.device.register');
+
 // Protected routes that require token authentication
 Route::middleware(['api.token'])->group(function () {
     
@@ -28,8 +31,7 @@ Route::middleware(['api.token'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'getProfile'])->name('api.profile.get');
     Route::post('/profile/update', [UpdateProfileController::class, 'update'])->name('api.profile.update');
 
-    // Device Token API Routes
-    Route::post('/device/register', [DeviceTokenController::class, 'register'])->name('api.device.register');
+    // Device Token API Routes (protected)
     Route::get('/devices', [DeviceTokenController::class, 'list'])->name('api.device.list');
     Route::put('/device/{id}', [DeviceTokenController::class, 'update'])->name('api.device.update');
     Route::delete('/device/{id}', [DeviceTokenController::class, 'delete'])->name('api.device.delete');

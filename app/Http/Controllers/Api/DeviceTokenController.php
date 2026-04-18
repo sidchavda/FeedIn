@@ -30,15 +30,9 @@ class DeviceTokenController extends Controller
 
         $user = $request->user();
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized. Please provide a valid token.'
-            ], 401);
-        }
-
+        // Allow guest registration (user_id can be null)
         $deviceToken = DeviceToken::create([
-            'user_id' => $user->id,
+            'user_id' => $user?->id, // null if guest
             'device_token' => $request->device_token,
             'device_type' => $request->device_type,
             'device_name' => $request->device_name,
@@ -47,8 +41,16 @@ class DeviceTokenController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Device token registered successfully',
-            'data' => $deviceToken
+            'message' => $user ? 'Device token registered successfully' : 'Device token registered as guest',
+            'data' => [
+                'id' => $deviceToken->id,
+                'device_token' => $deviceToken->device_token,
+                'device_type' => $deviceToken->device_type,
+                'device_name' => $deviceToken->device_name,
+                'user_id' => $deviceToken->user_id,
+                'is_guest' => $user ? false : true,
+                'created_at' => $deviceToken->created_at,
+            ]
         ]);
     }
 
