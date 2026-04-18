@@ -181,11 +181,11 @@ class NewsController extends Controller
             $result = $this->fcmService->sendToMultipleDevices($deviceTokens, $title, $body, $data);
 
             if ($result['success']) {
-                Log::info('Push notification sent for news ID: ' . $news->id, [
-                    'success_count' => $result['success_count'],
-                    'failure_count' => $result['failure_count'],
-                    'total_devices' => count($deviceTokens),
-                ]);
+                // Log::info('Push notification sent for news ID: ' . $news->id, [
+                //     'success_count' => $result['success_count'],
+                //     'failure_count' => $result['failure_count'],
+                //     'total_devices' => count($deviceTokens),
+                // ]);
             } else {
                 Log::error('Failed to send push notification for news ID: ' . $news->id, [
                     'error' => $result['error'] ?? 'Unknown error',
