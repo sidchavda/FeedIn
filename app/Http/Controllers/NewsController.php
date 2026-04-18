@@ -7,10 +7,20 @@ use App\Models\Category;
 use App\Models\Language;
 use App\Models\Country;
 use App\Models\State;
+use App\Models\DeviceToken;
+use App\Services\FCMService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class NewsController extends Controller
 {
+    protected $fcmService;
+
+    public function __construct(FCMService $fcmService)
+    {
+        $this->fcmService = $fcmService;
+    }
+
     public function index(Request $request)
     {
         $query = News::with(['country', 'state', 'language', 'category'])->latest();
@@ -83,7 +93,13 @@ class NewsController extends Controller
             $data['image'] = 'images/news/' . $imageName;
         }
 
-        News::create($data);
+        $news = News::create($data);
+
+        // Send push notification if enabled
+        if ($news->push_notification && $news->status) {
+            $this->sendPushNotification($news);
+        }
+
         return redirect()->route('admin.news.index')->with('success', 'News created successfully.');
     }
 
@@ -127,7 +143,50 @@ class NewsController extends Controller
         }
 
         $news->update($data);
+
+        // Send push notification if enabled and status is active
+        if ($news->push_notification && $news->status) {
+            $this->sendPushNotification($news);
+        }
+
         return redirect()->route('admin.news.index')->with('success', 'News updated successfully.');
+    }
+
+    /**
+     * Send push notification to all device tokens
+     */
+    private function sendPushNotification($news)
+    {
+        try {
+            // Get all device tokens (including guest tokens where user_id is null)
+            $deviceTokens = DeviceToken::pluck('device_token')->toArray();
+
+            if (empty($deviceTokens)) {
+                Log::info('No device tokens found for push notification');
+                return;
+            }
+
+            // Prepare notification data
+            $title = 'New News: ' . $news->title;
+            $body = substr(strip_tags($news->description), 0, 100) . '...';
+            $data = [
+                'news_id' => $news->id,
+                'slug' => $news->slug,
+                'type' => 'news',
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+            ];
+
+            // Send to all devices
+            $result = $this->fcmService->sendToMultipleDevices($deviceTokens, $title, $body, $data);
+
+            if ($result) {
+                Log::info('Push notification sent successfully for news ID: ' . $news->id);
+            } else {
+                Log::error('Failed to send push notification for news ID: ' . $news->id);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error sending push notification: ' . $e->getMessage());
+        }
     }
 
     public function delete($id)
