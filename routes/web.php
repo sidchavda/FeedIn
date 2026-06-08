@@ -29,6 +29,10 @@ Route::post('/password/reset', 'App\Http\Controllers\Auth\ResetPasswordControlle
 Route::post('/logout', 'App\Http\Controllers\Auth\LoginController@logout')->name('logout');
 // END: Auth routes
 
+// Policy page (public)
+Route::get('/policy', function () {
+    return view('pages.policy');
+})->name('policy');
 
 Route::group(['middleware' => ['auth']], function () {
     Route::get('/', [App\Http\Controllers\DashboardsController::class, 'index'])->name('admin.dashboard.index');
