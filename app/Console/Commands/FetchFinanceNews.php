@@ -64,6 +64,9 @@ class FetchFinanceNews extends Command
                 if (!$this->isFinanceRelated($titleCheck)) {
                     continue;
                 }
+                if (empty($art['image'])) {
+                    continue;
+                }
                 $pending[] = $art;
                 $seenLinks[$link] = true;
             }
