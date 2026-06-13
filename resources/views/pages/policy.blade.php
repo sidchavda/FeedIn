@@ -194,7 +194,7 @@
                 <h2><span>5</span> SECURITY</h2>
                 <p>We take appropriate technical and administrative safeguards to protect your data. However, no system is completely secure. If a breach occurs, we will make reasonable efforts to inform you as allowed by law.</p>
                 <div class="contact-box">
-                    <strong>Security Alert:</strong> Never share your password. If your account is compromised, change it immediately and contact us at <strong>grievances@inshorts.group</strong>.
+                    <strong>Security Alert:</strong> Never share your password. If your account is compromised, change it immediately and contact us at <strong>inquiry.feedin@gmail.com</strong>.
                 </div>
             </div>
 
@@ -207,7 +207,7 @@
             <!-- Section 7 -->
             <div class="policy-section">
                 <h2><span>7</span> YOUR RIGHTS</h2>
-                <p>You have the right to review and correct your Personal Information. You may also request the deletion of your data by writing to <strong>grievances@inshorts.group</strong>. Note that withdrawing consent may limit our ability to provide certain services.</p>
+                <p>You have the right to review and correct your Personal Information. You may also request the deletion of your data by writing to <strong>inquiry.feedin@gmail.com</strong>. Note that withdrawing consent may limit our ability to provide certain services.</p>
             </div>
 
             <!-- Section 8 -->
