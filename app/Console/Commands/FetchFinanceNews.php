@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 class FetchFinanceNews extends Command
 {
     protected $signature = 'news:fetch-finance
-        {--limit=15 : Max articles to insert}
+        {--limit=200 : Max articles to insert per run}
         {--source= : RSS feed URL (defaults to Yahoo Finance + fallbacks)}
         {--no-verify : Bypass SSL verification (use for local dev with cert issues)}';
 
@@ -39,11 +39,9 @@ class FetchFinanceNews extends Command
 
         // 1. Gather all unique new articles from RSS feeds
         $pending = [];
+        $seenLinks = [];
 
         foreach ($feedUrls as $feedUrl) {
-            if (count($pending) >= $limit) {
-                break;
-            }
             $this->line("Fetching RSS: {$feedUrl}");
             $articles = $this->parseFeed($feedUrl);
             if (empty($articles)) {
@@ -53,17 +51,17 @@ class FetchFinanceNews extends Command
             $this->info("  Found " . count($articles) . " articles.");
             foreach ($articles as $art) {
                 if (count($pending) >= $limit) {
-                    break;
+                    break 2;
                 }
                 $link = $art['link'] ?? null;
-                if (!$link || isset($existingLinks[$link])) {
+                if (!$link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
                     continue;
                 }
                 if (empty($art['title'])) {
                     continue;
                 }
                 $pending[] = $art;
-                $existingLinks[$link] = true;
+                $seenLinks[$link] = true;
             }
         }
 
@@ -334,7 +332,7 @@ class FetchFinanceNews extends Command
 
                 $namespaces = $item->getNamespaces(true);
 
-                // Image from media:content
+                // Image from media:content, media:thumbnail
                 $image = null;
                 if (isset($namespaces['media'])) {
                     $media = $item->children($namespaces['media']);
@@ -342,11 +340,22 @@ class FetchFinanceNews extends Command
                         $attrs = $media->content->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
+                    if (!$image && isset($media->thumbnail)) {
+                        $attrs = $media->thumbnail->attributes();
+                        $image = (string) ($attrs['url'] ?? '');
+                    }
                 }
                 if (!$image && isset($item->enclosure)) {
                     $attrs = $item->enclosure->attributes();
                     if (str_starts_with((string) ($attrs['type'] ?? ''), 'image/')) {
                         $image = (string) ($attrs['url'] ?? '');
+                    }
+                }
+                // Fallback: extract first <img> from description HTML
+                if (!$image) {
+                    $descHtml = (string) ($item->description ?? '');
+                    if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $descHtml, $m)) {
+                        $image = $m[1];
                     }
                 }
 
