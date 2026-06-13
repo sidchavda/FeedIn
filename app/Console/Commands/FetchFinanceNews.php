@@ -60,6 +60,10 @@ class FetchFinanceNews extends Command
                 if (empty($art['title'])) {
                     continue;
                 }
+                $titleCheck = html_entity_decode(strip_tags($art['title']));
+                if (!$this->isFinanceRelated($titleCheck)) {
+                    continue;
+                }
                 $pending[] = $art;
                 $seenLinks[$link] = true;
             }
@@ -99,19 +103,27 @@ class FetchFinanceNews extends Command
             $image = $art['image'] ?? null;
             $author = $art['author'] ?? 'Financial News';
 
-            News::create([
-                'title' => mb_substr($title, 0, 200),
-                'link' => $art['link'],
-                'language_id' => $language->id,
-                'category_id' => $category->id,
-                'description' => $desc,
-                'image' => $image,
-                'author' => $author,
-                'status' => 1,
-                'push_notification' => 0,
-            ]);
+            try {
+                News::create([
+                    'title' => mb_substr($title, 0, 160),
+                    'link' => $art['link'],
+                    'language_id' => $language->id,
+                    'category_id' => $category->id,
+                    'description' => $desc,
+                    'image' => $image,
+                    'author' => $author,
+                    'status' => 1,
+                    'push_notification' => 0,
+                ]);
+                $inserted++;
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($e->getCode() === '23000') {
+                    $this->warn("  Skipped duplicate: " . mb_substr($title, 0, 60));
+                } else {
+                    throw $e;
+                }
+            }
 
-            $inserted++;
             $bar->advance();
         }
 
@@ -119,6 +131,70 @@ class FetchFinanceNews extends Command
         $this->newLine();
         $this->info("Done. Inserted: {$inserted}");
         return Command::SUCCESS;
+    }
+
+    private function isFinanceRelated(string $title): bool
+    {
+        $lower = strtolower($title);
+
+        $exclude = [
+            'cricket', 'football', 'tennis', 'badminton', 't20', 'ipl', 'world cup',
+            'match', 'score', 'goal', 'hat-trick', 'hattrick', 'tournament',
+            'championship', 'semi-final', 'final', 'quarterfinal', 'league',
+            'gold medal', 'silver medal', 'bronze medal', 'olympics', 'olympic',
+            'quote of the day', 'proverb of the day', 'thought for the day',
+            'life lesson', 'daily wisdom', 'word of the day',
+            'movie', 'film review', 'actor', 'actress', 'singer', 'celebrity',
+            'fashion', 'beauty', 'recipe', 'cooking', 'food',
+            'horoscope', 'astrology', 'zodiac',
+            'obituary', 'died at', 'passed away',
+            'traffic', 'weather update', 'earthquake',
+        ];
+        foreach ($exclude as $keyword) {
+            if (str_contains($lower, $keyword)) {
+                return false;
+            }
+        }
+
+        $financeKeywords = [
+            'stock', 'market', 'share', 'nifty', 'sensex', 'bse', 'nse',
+            'ipo', 'listing', 'public issue', 'offer for sale',
+            'profit', 'revenue', 'earnings', 'net income', 'net profit', 'loss',
+            'margin', 'quarter', 'q1', 'q2', 'q3', 'q4', 'fy', 'annual result',
+            'dividend', 'buyback', 'bonus', 'split', 'corporate action',
+            'rupee', 'dollar', 'forex', 'fdi', 'fii', 'dii', 'currency',
+            'bank', 'rbi', 'sebi', 'regulat', 'policy', 'rate cut', 'repo',
+            'monetary', 'inflation', 'gdp', 'economy', 'economic', 'fiscal',
+            'invest', 'fund', 'mutual fund', 'debt', 'equity', 'capital',
+            'merger', 'acquis', 'takeover', 'deal', 'partnership',
+            'trade', 'tariff', 'export', 'import',
+            'ceo', 'cfo', 'chairman', 'board', 'executive',
+            'budget', 'tax', 'gst',
+            'fundrai', 'startup', 'venture capital', 'funding',
+            ' crore ', ' lakh ', ' million ', ' billion ', 'trillion',
+            'price', 'rate', 'interest', 'loan', 'credit',
+            'energy', 'oil', 'gold', 'commodity', 'crude',
+            'steel', 'coal', 'metal', 'mining',
+            'automotive', 'auto', 'car', ' ev ', 'electric vehicle',
+            'pharma', 'healthcare', 'hospital',
+            'realty', 'real estate', 'property',
+            'technology', 'software', 'digital',
+            'it services', 'it sector', 'it firm', 'it company',
+            'telecom', 'telecommunication',
+            'defence', 'defense', 'aerospace',
+            'infrastructure', 'infra', 'power', 'renewable',
+            'insurance', 'fintech',
+            'dow jones', 'nasdaq', 's&p', 'wall street',
+            'bull run', 'bull market', 'bear market', 'rally',
+            'volatility', 'correction', 'crash', 'recovery',
+        ];
+        foreach ($financeKeywords as $keyword) {
+            if (str_contains($lower, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function cleanDescription(?string $raw, string $title = ''): ?string
