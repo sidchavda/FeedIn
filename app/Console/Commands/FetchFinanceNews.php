@@ -43,7 +43,8 @@ class FetchFinanceNews extends Command
 
         foreach ($feedUrls as $feedUrl) {
             $this->line("Fetching RSS: {$feedUrl}");
-            $articles = $this->parseFeed($feedUrl);
+            $sourceName = $this->sourceNameFromUrl($feedUrl);
+            $articles = $this->parseFeed($feedUrl, $sourceName);
             if (empty($articles)) {
                 $this->warn("  No articles from this source.");
                 continue;
@@ -79,17 +80,20 @@ class FetchFinanceNews extends Command
 
         $this->info('New articles to process: ' . count($pending));
 
-        // 2. For articles missing descriptions, extract summary from their pages
+        // 2. Fetch article pages for descriptions and author where needed
+        $sourceFallbacks = ['Moneycontrol News', 'Economic Times', 'Livemint', 'Business Standard', 'NDTV Profit', 'Google News', 'Financial News'];
         $needsFetch = [];
         foreach ($pending as $i => $art) {
             $desc = trim(strip_tags($art['description'] ?? ''));
-            if (strlen($desc) < 20) {
+            $needsDescription = strlen($desc) < 20;
+            $needsAuthor = empty($art['author']) || in_array($art['author'], $sourceFallbacks);
+            if ($needsDescription || $needsAuthor) {
                 $needsFetch[$i] = $art['link'];
             }
         }
 
         if (!empty($needsFetch)) {
-            $this->line('Fetching article pages for descriptions...');
+            $this->line('Fetching article pages...');
             $this->fetchDescriptions($needsFetch, $pending);
         }
 
@@ -104,7 +108,7 @@ class FetchFinanceNews extends Command
 
             $desc = $this->cleanDescription($art['description'] ?? '', $title);
             $image = $art['image'] ?? null;
-            $author = $art['author'] ?? 'Financial News';
+            $author = $art['author'] ?: ($art['source'] ?? 'Financial News');
 
             try {
                 News::create([
@@ -368,6 +372,29 @@ class FetchFinanceNews extends Command
                 if ($originalIndex !== false && !empty($paragraphs)) {
                     $pending[$originalIndex]['description'] = implode(' ', $paragraphs);
                 }
+
+                // Extract author from page
+                if ($originalIndex !== false && empty($pending[$originalIndex]['author'])) {
+                    $author = '';
+                    if (preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                        $author = trim($m[1]);
+                    }
+                    if (!$author && preg_match('/<meta[^>]+property=["\']article:author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                        $author = trim($m[1]);
+                    }
+                    if (!$author && preg_match('/<span[^>]*class=["\'][^"\']*\bauthor\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
+                        $author = trim(strip_tags($m[1]));
+                    }
+                    if (!$author && preg_match('/<a[^>]*rel=["\']author["\'][^>]*>(.+?)<\/a>/is', $html, $m)) {
+                        $author = trim(strip_tags($m[1]));
+                    }
+                    if (!$author && preg_match('/<span[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
+                        $author = trim(strip_tags(preg_replace('/^By\s*/i', '', $m[1])));
+                    }
+                    if ($author) {
+                        $pending[$originalIndex]['author'] = $author;
+                    }
+                }
             },
             'rejected' => function ($reason, $index) {
                 // Silently skip — will fall back to RSS description or empty
@@ -378,7 +405,7 @@ class FetchFinanceNews extends Command
         $promise->wait();
     }
 
-    private function parseFeed(string $url): array
+    private function parseFeed(string $url, string $sourceName = ''): array
     {
         try {
             $client = new Client([
@@ -461,6 +488,7 @@ class FetchFinanceNews extends Command
                     'description' => $desc,
                     'image' => $image,
                     'author' => $author,
+                    'source' => $sourceName,
                 ];
             }
 
@@ -485,5 +513,28 @@ class FetchFinanceNews extends Command
             ['name' => 'Finance', 'language_id' => $languageId],
             ['is_active' => 1]
         );
+    }
+
+    private function sourceNameFromUrl(string $url): string
+    {
+        if (str_contains($url, 'moneycontrol.com')) {
+            return 'Moneycontrol News';
+        }
+        if (str_contains($url, 'economictimes.indiatimes.com')) {
+            return 'Economic Times';
+        }
+        if (str_contains($url, 'livemint.com')) {
+            return 'Livemint';
+        }
+        if (str_contains($url, 'business-standard.com')) {
+            return 'Business Standard';
+        }
+        if (str_contains($url, 'ndtvprofit.com')) {
+            return 'NDTV Profit';
+        }
+        if (str_contains($url, 'news.google.com')) {
+            return 'Google News';
+        }
+        return 'Financial News';
     }
 }
