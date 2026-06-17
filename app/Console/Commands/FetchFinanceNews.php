@@ -35,11 +35,13 @@ class FetchFinanceNews extends Command
         $limit = (int) $this->option('limit');
 
         $existingLinks = News::pluck('link')->flip();
+        $existingTitles = News::pluck('title')->map(fn ($t) => $this->normalizeTitle($t))->flip();
         $feedUrls = $this->option('source') ? [$this->option('source')] : $this->feeds;
 
         // 1. Gather all unique new articles from RSS feeds
         $pending = [];
         $seenLinks = [];
+        $seenTitles = [];
 
         foreach ($feedUrls as $feedUrl) {
             $this->line("Fetching RSS: {$feedUrl}");
@@ -68,8 +70,13 @@ class FetchFinanceNews extends Command
                 if (empty($art['image'])) {
                     continue;
                 }
+                $normalized = $this->normalizeTitle($titleCheck);
+                if (isset($existingTitles[$normalized]) || isset($seenTitles[$normalized])) {
+                    continue;
+                }
                 $pending[] = $art;
                 $seenLinks[$link] = true;
+                $seenTitles[$normalized] = true;
             }
         }
 
@@ -536,5 +543,10 @@ class FetchFinanceNews extends Command
             return 'Google News';
         }
         return 'Financial News';
+    }
+
+    private function normalizeTitle(string $title): string
+    {
+        return preg_replace('/[^a-z0-9\s]/', '', strtolower(trim($title)));
     }
 }
