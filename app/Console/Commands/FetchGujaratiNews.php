@@ -1,0 +1,235 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\News;
+use App\Models\Category;
+use App\Models\Language;
+use GuzzleHttp\Client;
+use Illuminate\Console\Command;
+
+class FetchGujaratiNews extends Command
+{
+    protected $signature = 'news:fetch-gujarati
+        {--limit=50 : Max articles to insert per run}
+        {--no-verify : Bypass SSL verification}';
+
+    protected $description = 'Fetch Gujarati news from Divya Bhaskar RSS feeds';
+
+    private array $categoryFeeds = [
+        1035 => 'મારું ગુજરાત',   // My Gujarat
+        1037 => 'ઈન્ડિયા',         // India
+        1038 => 'વર્લ્ડ',           // World
+        969  => 'બિઝનેસ',          // Business
+        970  => 'સ્પોર્ટ્સ',        // Sports
+        12042 => 'એન્ટરટેઇનમેન્ટ', // Entertainment
+    ];
+
+    public function handle(): int
+    {
+        $language = Language::firstOrCreate(
+            ['code' => 'GJ'],
+            ['name' => 'Gujarati', 'is_active' => 1]
+        );
+        $category = Category::firstOrCreate(
+            ['name' => 'ગુજરાતી', 'language_id' => $language->id],
+            ['is_active' => 1]
+        );
+        $limit = (int) $this->option('limit');
+
+        $existingLinks = News::pluck('link')->flip();
+        $existingTitles = News::pluck('title')->map(fn ($t) => $this->normalizeTitle($t))->flip();
+
+        $pending = [];
+        $seenLinks = [];
+        $seenTitles = [];
+
+        foreach ($this->categoryFeeds as $catId => $catName) {
+            if (count($pending) >= $limit) {
+                break;
+            }
+            $feedUrl = "https://divyabhaskar.co.in/rss-v1--category-{$catId}.xml";
+            $this->line("Fetching: {$catName}");
+            $articles = $this->parseFeed($feedUrl);
+            if (empty($articles)) {
+                continue;
+            }
+            $this->info("  Found " . count($articles) . " articles.");
+
+            foreach ($articles as $art) {
+                if (count($pending) >= $limit) {
+                    break 2;
+                }
+                $link = $art['link'] ?? null;
+                if (!$link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+                    continue;
+                }
+                if (empty($art['title'])) {
+                    continue;
+                }
+                if (empty($art['image'])) {
+                    continue;
+                }
+                $normalized = $this->normalizeTitle($art['title']);
+                if (isset($existingTitles[$normalized]) || isset($seenTitles[$normalized])) {
+                    continue;
+                }
+                $pending[] = $art;
+                $seenLinks[$link] = true;
+                $seenTitles[$normalized] = true;
+            }
+        }
+
+        if (empty($pending)) {
+            $this->warn('No new articles to insert.');
+            return Command::SUCCESS;
+        }
+
+        $this->info('New articles to process: ' . count($pending));
+
+        $inserted = 0;
+        $bar = $this->output->createProgressBar(count($pending));
+        $bar->start();
+
+        foreach ($pending as $art) {
+            $title = html_entity_decode(strip_tags($art['title']));
+            $title = trim(preg_replace('/\s+/', ' ', $title));
+
+            $desc = $this->cleanDescription($art['description'] ?? '');
+            $image = $art['image'] ?? null;
+            $author = $art['author'] ?: 'Divya Bhaskar';
+
+            try {
+                News::create([
+                    'title' => mb_substr($title, 0, 160),
+                    'link' => $art['link'],
+                    'language_id' => $language->id,
+                    'category_id' => $category->id,
+                    'description' => $desc,
+                    'image' => $image,
+                    'author' => $author,
+                    'status' => 1,
+                    'push_notification' => 0,
+                ]);
+                $inserted++;
+            } catch (\Illuminate\Database\QueryException $e) {
+                if (str_contains($e->getMessage(), '23000')) {
+                    $this->warn('  Skipped duplicate: ' . mb_substr($title, 0, 60));
+                } else {
+                    throw $e;
+                }
+            }
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine();
+        $this->info("Done. Inserted: {$inserted}");
+        return Command::SUCCESS;
+    }
+
+    private function parseFeed(string $url): array
+    {
+        try {
+            $client = new Client([
+                'timeout' => 10,
+                'headers' => ['User-Agent' => 'Mozilla/5.0 (compatible; TEJ/1.0)'],
+            ]);
+
+            if ($this->option('no-verify')) {
+                $client = new Client([
+                    'timeout' => 10,
+                    'verify' => false,
+                    'headers' => ['User-Agent' => 'Mozilla/5.0 (compatible; TEJ/1.0)'],
+                ]);
+            }
+
+            $response = $client->get($url);
+            $xml = simplexml_load_string((string) $response->getBody());
+            if (!$xml || !isset($xml->channel)) {
+                return [];
+            }
+
+            $items = $xml->channel->item ?? [];
+            $articles = [];
+
+            foreach ($items as $item) {
+                $link = trim((string) ($item->link ?? ''));
+                if (!$link) {
+                    continue;
+                }
+
+                $namespaces = $item->getNamespaces(true);
+
+                $image = null;
+                if (isset($namespaces['media'])) {
+                    $media = $item->children($namespaces['media']);
+                    if (isset($media->content)) {
+                        $attrs = $media->content->attributes();
+                        $image = (string) ($attrs['url'] ?? '');
+                    }
+                    if (!$image && isset($media->thumbnail)) {
+                        $attrs = $media->thumbnail->attributes();
+                        $image = (string) ($attrs['url'] ?? '');
+                    }
+                }
+                if (!$image && isset($item->enclosure)) {
+                    $attrs = $item->enclosure->attributes();
+                    if (str_starts_with((string) ($attrs['type'] ?? ''), 'image/')) {
+                        $image = (string) ($attrs['url'] ?? '');
+                    }
+                }
+                if (!$image) {
+                    $descHtml = (string) ($item->description ?? '');
+                    if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $descHtml, $m)) {
+                        $image = $m[1];
+                    }
+                }
+
+                $author = '';
+                if (isset($namespaces['dc'])) {
+                    $dc = $item->children($namespaces['dc']);
+                    $author = (string) ($dc->creator ?? '');
+                }
+                if (!$author) {
+                    $author = (string) ($item->author ?? '');
+                }
+
+                $desc = (string) ($item->description ?? '');
+                if (empty(trim(strip_tags($desc))) && isset($namespaces['content'])) {
+                    $content = $item->children($namespaces['content']);
+                    $desc = (string) ($content->encoded ?? '');
+                }
+
+                $articles[] = [
+                    'title' => (string) ($item->title ?? ''),
+                    'link' => $link,
+                    'description' => $desc,
+                    'image' => $image,
+                    'author' => $author,
+                ];
+            }
+
+            return $articles;
+        } catch (\Exception $e) {
+            $this->warn("  Error: {$e->getMessage()}");
+            return [];
+        }
+    }
+
+    private function cleanDescription(?string $raw): ?string
+    {
+        $text = html_entity_decode(strip_tags($raw ?? ''));
+        $text = trim(preg_replace('/\s+/', ' ', $text));
+        $text = trim($text);
+        if (mb_strlen($text ?? '') > 500) {
+            $text = mb_substr($text, 0, 497) . '...';
+        }
+        return $text ?: null;
+    }
+
+    private function normalizeTitle(string $title): string
+    {
+        return preg_replace('/[^a-z0-9\s\x{0900}-\x{097F}]/u', '', mb_strtolower(trim($title)));
+    }
+}
