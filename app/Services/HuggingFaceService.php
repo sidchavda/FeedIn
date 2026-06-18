@@ -42,8 +42,7 @@ class HuggingFaceService
 
         $lang = $language === 'gujarati' ? 'Gujarati' : 'English';
 
-        $prompt = "Summarize the following article in {$lang} in exactly 60 to 80 words. "
-            . "Minimum 80 words. Maximum 100 words. "
+        $prompt = "Write a detailed summary of this article in {$lang} in 4 to 5 sentences. "
             . "Make the summary specific to this article's content and title. "
             . "Return only the summary text, no prefixes or labels:\n\n{$input}";
 
@@ -115,7 +114,7 @@ class HuggingFaceService
     private function callGroq(string $prompt): ?string
     {
         try {
-            $model = 'meta-llama/llama-3.2-3b-instruct';
+            $model = 'qwen/qwen-2.5-72b-instruct';
 
             $resp = $this->http->post('https://openrouter.ai/api/v1/chat/completions', [
                 'json' => [
@@ -124,7 +123,7 @@ class HuggingFaceService
                         ['role' => 'user', 'content' => $prompt],
                     ],
                     'temperature' => 0.3,
-                    // 'max_tokens' => 500,
+                    //                     'max_tokens' => 800,
                 ],
                 'headers' => [
                     'Authorization' => "Bearer {$this->apiKey}",
@@ -143,7 +142,7 @@ class HuggingFaceService
                 $text = trim($text, '"\'');
                 // Reject if too short (AI returned a fragment, not a real summary)
                 $wordCount = count(preg_split('/\s+/', $text));
-                if ($wordCount < 30) {
+                if ($wordCount < 40) {
                     Log::warning("HuggingFaceService: summary too short ({$wordCount} words), discarding");
                     return null;
                 }
