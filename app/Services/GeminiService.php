@@ -16,17 +16,17 @@ class GeminiService
         $this->apiKey = config('services.gemini.api_key');
     }
 
-    public function summarizeUrl(string $url, string $language = 'english', int $targetWords = 70): ?string
+    public function summarizeUrl(string $url, string $language = 'english', int $targetWords = 70, string $title = ''): ?string
     {
         $pageText = $this->fetchPageText($url);
         if (!$pageText) {
             return null;
         }
 
-        return $this->summarizeText($pageText, $language, $targetWords);
+        return $this->summarizeText($pageText, $language, $targetWords, $title);
     }
 
-    public function summarizeText(string $text, string $language = 'english', int $targetWords = 70): ?string
+    public function summarizeText(string $text, string $language = 'english', int $targetWords = 70, string $title = ''): ?string
     {
         if (!$this->apiKey) {
             Log::warning('GeminiService: GEMINI_API_KEY is not set');
@@ -39,8 +39,10 @@ class GeminiService
             return null;
         }
 
+        $titlePrefix = $title ? "Title: $title\n\n" : '';
         $prompt = "Summarize the following article in $language in about $targetWords words. "
-            . "Return only the summary text, no prefixes or labels:\n\n$text";
+            . "Make the summary specific to this article's content and title. "
+            . "Return only the summary text, no prefixes or labels:\n\n{$titlePrefix}$text";
 
         return $this->callGemini($prompt);
     }

@@ -253,7 +253,7 @@ class FetchGujaratiNews extends Command
         foreach ($pending as $i => &$art) {
             $link = $art['link'] ?? null;
             if ($link) {
-                $summary = $gemini->summarizeUrl($link, $language, 70);
+                $summary = $gemini->summarizeUrl($link, $language, 70, $art['title'] ?? '');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
