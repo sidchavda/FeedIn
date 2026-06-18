@@ -5,9 +5,10 @@ namespace App\Console\Commands;
 use App\Models\News;
 use App\Models\Category;
 use App\Models\Language;
-use App\Services\GeminiService;
+use App\Services\HuggingFaceService;
 use GuzzleHttp\Client;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class FetchGujaratiNews extends Command
 {
@@ -101,6 +102,9 @@ class FetchGujaratiNews extends Command
             $title = trim(preg_replace('/\s+/', ' ', $title));
 
             $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
+            if (!empty($art['ai_summarized'])) {
+                Log::info('HF: stored', ['title' => mb_substr($title, 0, 60)]);
+            }
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: $art['source'];
 
@@ -241,8 +245,8 @@ class FetchGujaratiNews extends Command
 
     private function summarizeWithGemini(array &$pending, string $language): void
     {
-        $gemini = new GeminiService();
-        if (!config('services.gemini.api_key')) {
+        $gemini = new HuggingFaceService();
+        if (!config('services.huggingface.api_key')) {
             return;
         }
 
@@ -251,12 +255,14 @@ class FetchGujaratiNews extends Command
         $bar->start();
 
         foreach ($pending as $i => &$art) {
-            $link = $art['link'] ?? null;
-            if ($link) {
-                $summary = $gemini->summarizeUrl($link, $language, 70, $art['title'] ?? '');
+            if (!empty($art['link'])) {
+                $summary = $gemini->summarizeUrl($art['link'], $language, 70, $art['title'] ?? '');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
+                    Log::info('HF: summarized', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
+                } else {
+                    Log::info('HF: failed (null)', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
                 }
             }
             $bar->advance();

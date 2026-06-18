@@ -5,15 +5,20 @@ namespace App\Services;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Log;
 
-class GeminiService
+class HuggingFaceService
 {
     private Client $http;
     private ?string $apiKey;
 
+    private array $models = [
+        'english' => 'facebook/bart-large-cnn',
+        'gujarati' => 'facebook/mbart-large-50-summarization',
+    ];
+
     public function __construct(?Client $client = null)
     {
-        $this->http = $client ?? new Client(['timeout' => 30, 'verify' => false]);
-        $this->apiKey = config('services.gemini.api_key');
+        $this->http = $client ?? new Client(['timeout' => 60, 'verify' => false]);
+        $this->apiKey = config('services.huggingface.api_key');
     }
 
     public function summarizeUrl(string $url, string $language = 'english', int $targetWords = 70, string $title = ''): ?string
@@ -29,22 +34,20 @@ class GeminiService
     public function summarizeText(string $text, string $language = 'english', int $targetWords = 70, string $title = ''): ?string
     {
         if (!$this->apiKey) {
-            Log::warning('GeminiService: GEMINI_API_KEY is not set');
-            return null;
-        }
-
-        $text = mb_substr(trim($text), 0, 4000);
-
-        if (empty($text)) {
+            Log::warning('HuggingFaceService: HF_API_KEY is not set');
             return null;
         }
 
         $titlePrefix = $title ? "Title: $title\n\n" : '';
-        $prompt = "Summarize the following article in $language in about $targetWords words. "
-            . "Make the summary specific to this article's content and title. "
-            . "Return only the summary text, no prefixes or labels:\n\n{$titlePrefix}$text";
+        $input = mb_substr(trim($titlePrefix . $text), 0, 3000);
 
-        return $this->callGemini($prompt);
+        if (empty($input)) {
+            return null;
+        }
+
+        $model = $this->models[$language] ?? $this->models['english'];
+
+        return $this->callHuggingFace($input, $model, $targetWords, $language);
     }
 
     private function fetchPageText(string $url): ?string
@@ -77,41 +80,45 @@ class GeminiService
 
             return mb_strlen($text) > 100 ? $text : null;
         } catch (\Exception $e) {
-            Log::warning("GeminiService: Failed to fetch {$url}: {$e->getMessage()}");
+            Log::warning("HuggingFaceService: Failed to fetch {$url}: {$e->getMessage()}");
             return null;
         }
     }
 
-    private function callGemini(string $prompt): ?string
+    private function callHuggingFace(string $input, string $model, int $targetWords, string $language): ?string
     {
         try {
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={$this->apiKey}";
+            $url = "https://api-inference.huggingface.co/models/{$model}";
+
+            $maxLength = $targetWords + 30;
+            $minLength = max(20, $targetWords - 20);
 
             $resp = $this->http->post($url, [
                 'json' => [
-                    'contents' => [
-                        ['parts' => [['text' => $prompt]]],
-                    ],
-                    'generationConfig' => [
-                        'temperature' => 0.3,
-                        'maxOutputTokens' => 300,
+                    'inputs' => $input,
+                    'parameters' => [
+                        'max_length' => $maxLength,
+                        'min_length' => $minLength,
+                        'do_sample' => false,
                     ],
                 ],
-                'headers' => ['Content-Type' => 'application/json'],
-                'timeout' => 30,
+                'headers' => [
+                    'Authorization' => "Bearer {$this->apiKey}",
+                    'Content-Type' => 'application/json',
+                ],
+                'timeout' => 60,
             ]);
 
             $body = json_decode((string) $resp->getBody(), true);
-            $text = $body['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            $text = $body[0]['summary_text'] ?? null;
 
             if ($text) {
                 $text = trim(preg_replace('/\s+/', ' ', $text));
-                $text = trim($text, '"\'');
             }
 
             return $text;
         } catch (\Exception $e) {
-            Log::error("GeminiService API call failed: {$e->getMessage()}");
+            Log::error("HuggingFaceService API call failed: {$e->getMessage()}");
             return null;
         }
     }
