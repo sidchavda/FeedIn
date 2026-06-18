@@ -42,7 +42,8 @@ class HuggingFaceService
 
         $lang = $language === 'gujarati' ? 'Gujarati' : 'English';
 
-        $prompt = "Summarize the following article in {$lang} in about {$targetWords} words. "
+        $prompt = "Summarize the following article in {$lang} in exactly 60 to 80 words. "
+            . "Minimum 80 words. Maximum 100 words. "
             . "Make the summary specific to this article's content and title. "
             . "Return only the summary text, no prefixes or labels:\n\n{$input}";
 
@@ -96,7 +97,7 @@ class HuggingFaceService
                         ['role' => 'user', 'content' => $prompt],
                     ],
                     'temperature' => 0.3,
-                    'max_tokens' => 300,
+                    // 'max_tokens' => 500,
                 ],
                 'headers' => [
                     'Authorization' => "Bearer {$this->apiKey}",
