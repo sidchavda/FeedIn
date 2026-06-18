@@ -103,7 +103,7 @@ class FetchGujaratiNews extends Command
 
             $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
             if (!empty($art['ai_summarized'])) {
-                Log::info('HF: stored', ['title' => mb_substr($title, 0, 60)]);
+                // Log::info('HF: stored', ['title' => mb_substr($title, 0, 60)]);
             }
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: $art['source'];
@@ -260,9 +260,9 @@ class FetchGujaratiNews extends Command
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
-                    Log::info('HF: summarized', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
+                    // Log::info('HF: summarized', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
                 } else {
-                    Log::info('HF: failed (null)', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
+                    // Log::info('HF: failed (null)', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
                 }
             }
             $bar->advance();

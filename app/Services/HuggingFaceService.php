@@ -10,11 +10,6 @@ class HuggingFaceService
     private Client $http;
     private ?string $apiKey;
 
-    private array $models = [
-        'english' => 'facebook/bart-large-cnn',
-        'gujarati' => 'facebook/mbart-large-50-summarization',
-    ];
-
     public function __construct(?Client $client = null)
     {
         $this->http = $client ?? new Client(['timeout' => 60, 'verify' => false]);
@@ -39,15 +34,19 @@ class HuggingFaceService
         }
 
         $titlePrefix = $title ? "Title: $title\n\n" : '';
-        $input = mb_substr(trim($titlePrefix . $text), 0, 3000);
+        $input = mb_substr(trim($titlePrefix . $text), 0, 4000);
 
         if (empty($input)) {
             return null;
         }
 
-        $model = $this->models[$language] ?? $this->models['english'];
+        $lang = $language === 'gujarati' ? 'Gujarati' : 'English';
 
-        return $this->callHuggingFace($input, $model, $targetWords, $language);
+        $prompt = "Summarize the following article in {$lang} in about {$targetWords} words. "
+            . "Make the summary specific to this article's content and title. "
+            . "Return only the summary text, no prefixes or labels:\n\n{$input}";
+
+        return $this->callGroq($prompt);
     }
 
     private function fetchPageText(string $url): ?string
@@ -85,22 +84,19 @@ class HuggingFaceService
         }
     }
 
-    private function callHuggingFace(string $input, string $model, int $targetWords, string $language): ?string
+    private function callGroq(string $prompt): ?string
     {
         try {
-            $url = "https://api-inference.huggingface.co/models/{$model}";
+            $model = 'llama-3.3-70b-versatile';
 
-            $maxLength = $targetWords + 30;
-            $minLength = max(20, $targetWords - 20);
-
-            $resp = $this->http->post($url, [
+            $resp = $this->http->post('https://api.groq.com/openai/v1/chat/completions', [
                 'json' => [
-                    'inputs' => $input,
-                    'parameters' => [
-                        'max_length' => $maxLength,
-                        'min_length' => $minLength,
-                        'do_sample' => false,
+                    'model' => $model,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $prompt],
                     ],
+                    'temperature' => 0.3,
+                    'max_tokens' => 300,
                 ],
                 'headers' => [
                     'Authorization' => "Bearer {$this->apiKey}",
@@ -110,10 +106,11 @@ class HuggingFaceService
             ]);
 
             $body = json_decode((string) $resp->getBody(), true);
-            $text = $body[0]['summary_text'] ?? null;
+            $text = $body['choices'][0]['message']['content'] ?? null;
 
             if ($text) {
                 $text = trim(preg_replace('/\s+/', ' ', $text));
+                $text = trim($text, '"\'');
             }
 
             return $text;
