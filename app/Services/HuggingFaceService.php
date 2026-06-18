@@ -87,9 +87,9 @@ class HuggingFaceService
     private function callGroq(string $prompt): ?string
     {
         try {
-            $model = 'llama-3.1-8b-instant';
+            $model = 'meta-llama/llama-3.2-3b-instruct';
 
-            $resp = $this->http->post('https://api.groq.com/openai/v1/chat/completions', [
+            $resp = $this->http->post('https://openrouter.ai/api/v1/chat/completions', [
                 'json' => [
                     'model' => $model,
                     'messages' => [
@@ -101,6 +101,8 @@ class HuggingFaceService
                 'headers' => [
                     'Authorization' => "Bearer {$this->apiKey}",
                     'Content-Type' => 'application/json',
+                    'HTTP-Referer' => 'http://localhost',
+                    'X-Title' => 'TEJ News',
                 ],
                 'timeout' => 60,
             ]);
