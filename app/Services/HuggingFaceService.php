@@ -60,23 +60,50 @@ class HuggingFaceService
             ]);
 
             $html = (string) $resp->getBody();
-            $text = '';
+            $parts = [];
 
-            if (preg_match('/<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']/is', $html, $m)) {
-                $text .= html_entity_decode($m[1]) . "\n\n";
-            }
-
-            if (preg_match('/<article[^>]*>(.*?)<\/article>/is', $html, $m)) {
-                $article = strip_tags($m[1]);
-                $text .= html_entity_decode(trim($article));
-            } else {
-                if (preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $m)) {
-                    $body = strip_tags($m[1]);
-                    $text .= html_entity_decode(trim($body));
+            // 1. meta description / og:description
+            foreach (['name="description"', 'property="og:description"', 'name="twitter:description"'] as $attr) {
+                if (preg_match('/<meta[^>]+' . preg_quote($attr, '/') . '[^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                    $parts[] = html_entity_decode($m[1]);
                 }
             }
 
-            $text = trim(preg_replace('/\s+/', ' ', $text));
+            // 2. All <p> tags from the entire HTML
+            preg_match_all('/<p[^>]*>(.+?)<\/p>/is', $html, $pTags);
+            $wordCount = 0;
+            $skipPhrases = ['skip to navigation', 'skip to main', 'skip to content', 'advertisement',
+                'read more', 'sign up', 'newsletter', 'terms of service',
+                'privacy policy', 'all rights reserved', 'cookie', 'subscribe',
+                'trending now', 'recommended', 'also read', 'follow us', 'related'];
+            foreach ($pTags[1] as $p) {
+                $clean = trim(strip_tags($p));
+                $clean = html_entity_decode($clean);
+                $clean = preg_replace('/\s+/', ' ', $clean);
+                $lower = strtolower($clean);
+                $isNoise = false;
+                foreach ($skipPhrases as $skip) {
+                    if (str_contains($lower, $skip)) { $isNoise = true; break; }
+                }
+                if (strlen($clean) > 60 && !$isNoise) {
+                    $parts[] = $clean;
+                    $wordCount += str_word_count($clean);
+                    if ($wordCount > 200) {
+                        break;
+                    }
+                }
+            }
+
+            // 3. Fallback: <article> or <body> content
+            if (empty($parts)) {
+                if (preg_match('/<article[^>]*>(.*?)<\/article>/is', $html, $m)) {
+                    $parts[] = trim(strip_tags($m[1]));
+                } elseif (preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $m)) {
+                    $parts[] = trim(strip_tags($m[1]));
+                }
+            }
+
+            $text = trim(preg_replace('/\s+/', ' ', implode("\n\n", $parts)));
 
             return mb_strlen($text) > 100 ? $text : null;
         } catch (\Exception $e) {
@@ -114,6 +141,12 @@ class HuggingFaceService
             if ($text) {
                 $text = trim(preg_replace('/\s+/', ' ', $text));
                 $text = trim($text, '"\'');
+                // Reject if too short (AI returned a fragment, not a real summary)
+                $wordCount = count(preg_split('/\s+/', $text));
+                if ($wordCount < 30) {
+                    Log::warning("HuggingFaceService: summary too short ({$wordCount} words), discarding");
+                    return null;
+                }
             }
 
             return $text;
