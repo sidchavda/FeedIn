@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\News;
 use App\Models\Category;
 use App\Models\Language;
+use App\Services\GeminiService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
@@ -89,6 +90,8 @@ class FetchEntertainmentNews extends Command
             $this->fetchPages($needsFetch, $pending);
         }
 
+        $this->summarizeWithGemini($pending, 'english');
+
         // Insert into database
         $inserted = 0;
         $bar = $this->output->createProgressBar(count($pending));
@@ -98,7 +101,7 @@ class FetchEntertainmentNews extends Command
             $title = html_entity_decode(strip_tags($art['title']));
             $title = trim(preg_replace('/\s+/', ' ', $title));
 
-            $desc = $this->cleanDescription($art['description'] ?? '', $title);
+            $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $title);
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: 'Pinkvilla';
 
@@ -407,6 +410,34 @@ class FetchEntertainmentNews extends Command
     private function normalizeTitle(string $title): string
     {
         return preg_replace('/[^a-z0-9\s]/', '', strtolower(trim($title)));
+    }
+
+    private function summarizeWithGemini(array &$pending, string $language): void
+    {
+        $gemini = new GeminiService();
+        if (!config('services.gemini.api_key')) {
+            return;
+        }
+
+        $this->line('Summarizing with Gemini AI...');
+        $bar = $this->output->createProgressBar(count($pending));
+        $bar->start();
+
+        foreach ($pending as $i => &$art) {
+            $link = $art['link'] ?? null;
+            if ($link) {
+                $summary = $gemini->summarizeUrl($link, $language, 70);
+                if ($summary) {
+                    $art['description'] = $summary;
+                    $art['ai_summarized'] = true;
+                }
+            }
+            $bar->advance();
+        }
+        unset($art);
+
+        $bar->finish();
+        $this->newLine();
     }
 
     private function ensureLanguage(): Language

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\News;
 use App\Models\Category;
 use App\Models\Language;
+use App\Services\GeminiService;
 use GuzzleHttp\Client;
 use Illuminate\Console\Command;
 
@@ -89,6 +90,8 @@ class FetchGujaratiNews extends Command
 
         $this->info('New articles to process: ' . count($pending));
 
+        $this->summarizeWithGemini($pending, 'gujarati');
+
         $inserted = 0;
         $bar = $this->output->createProgressBar(count($pending));
         $bar->start();
@@ -97,7 +100,7 @@ class FetchGujaratiNews extends Command
             $title = html_entity_decode(strip_tags($art['title']));
             $title = trim(preg_replace('/\s+/', ' ', $title));
 
-            $desc = $this->cleanDescription($art['description'] ?? '');
+            $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: $art['source'];
 
@@ -234,5 +237,33 @@ class FetchGujaratiNews extends Command
     private function normalizeTitle(string $title): string
     {
         return preg_replace('/[^a-z0-9\s\x{0900}-\x{097F}]/u', '', mb_strtolower(trim($title)));
+    }
+
+    private function summarizeWithGemini(array &$pending, string $language): void
+    {
+        $gemini = new GeminiService();
+        if (!config('services.gemini.api_key')) {
+            return;
+        }
+
+        $this->line('Summarizing with Gemini AI...');
+        $bar = $this->output->createProgressBar(count($pending));
+        $bar->start();
+
+        foreach ($pending as $i => &$art) {
+            $link = $art['link'] ?? null;
+            if ($link) {
+                $summary = $gemini->summarizeUrl($link, $language, 70);
+                if ($summary) {
+                    $art['description'] = $summary;
+                    $art['ai_summarized'] = true;
+                }
+            }
+            $bar->advance();
+        }
+        unset($art);
+
+        $bar->finish();
+        $this->newLine();
     }
 }

@@ -34,4 +34,8 @@ return [
         'credentials' => 'storage/app/firebase-service-account.json',
     ],
 
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+    ],
+
 ];
