@@ -87,7 +87,7 @@ class HuggingFaceService
     private function callGroq(string $prompt): ?string
     {
         try {
-            $model = 'llama-3.3-70b-versatile';
+            $model = 'llama-3.1-8b-instant';
 
             $resp = $this->http->post('https://api.groq.com/openai/v1/chat/completions', [
                 'json' => [
