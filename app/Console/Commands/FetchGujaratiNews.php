@@ -14,15 +14,16 @@ class FetchGujaratiNews extends Command
         {--limit=50 : Max articles to insert per run}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch Gujarati news from Divya Bhaskar RSS feeds';
+    protected $description = 'Fetch Gujarati news from Divya Bhaskar and News18 Gujarati';
 
-    private array $categoryFeeds = [
-        1035 => 'મારું ગુજરાત',   // My Gujarat
-        1037 => 'ઈન્ડિયા',         // India
-        1038 => 'વર્લ્ડ',           // World
-        969  => 'બિઝનેસ',          // Business
-        970  => 'સ્પોર્ટ્સ',        // Sports
-        12042 => 'એન્ટરટેઇનમેન્ટ', // Entertainment
+    private array $feeds = [
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1035.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1037.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1038.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-969.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-970.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-12042.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://gujarati.news18.com/commonfeeds/v1/guj/rss/latest.xml', 'source' => 'News18 Gujarati'],
     ];
 
     public function handle(): int
@@ -44,13 +45,14 @@ class FetchGujaratiNews extends Command
         $seenLinks = [];
         $seenTitles = [];
 
-        foreach ($this->categoryFeeds as $catId => $catName) {
+        foreach ($this->feeds as $feed) {
             if (count($pending) >= $limit) {
                 break;
             }
-            $feedUrl = "https://divyabhaskar.co.in/rss-v1--category-{$catId}.xml";
-            $this->line("Fetching: {$catName}");
-            $articles = $this->parseFeed($feedUrl);
+            $feedUrl = $feed['url'];
+            $source = $feed['source'];
+            $this->line("Fetching: {$source}");
+            $articles = $this->parseFeed($feedUrl, $source);
             if (empty($articles)) {
                 continue;
             }
@@ -97,7 +99,7 @@ class FetchGujaratiNews extends Command
 
             $desc = $this->cleanDescription($art['description'] ?? '');
             $image = $art['image'] ?? null;
-            $author = $art['author'] ?: 'Divya Bhaskar';
+            $author = $art['author'] ?: $art['source'];
 
             try {
                 News::create([
@@ -128,7 +130,7 @@ class FetchGujaratiNews extends Command
         return Command::SUCCESS;
     }
 
-    private function parseFeed(string $url): array
+    private function parseFeed(string $url, string $source): array
     {
         try {
             $client = new Client([
@@ -207,6 +209,7 @@ class FetchGujaratiNews extends Command
                     'description' => $desc,
                     'image' => $image,
                     'author' => $author,
+                    'source' => $source,
                 ];
             }
 
