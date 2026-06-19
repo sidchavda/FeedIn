@@ -42,7 +42,7 @@ class HuggingFaceService
 
         $lang = $language === 'gujarati' ? 'Gujarati' : 'English';
 
-        $prompt = "Write a detailed summary of this article in {$lang} in 4 to 5 sentences. "
+        $prompt = "Write a detailed summary of this article in {$lang} in 3 to 4 sentences. "
             . "Make the summary specific to this article's content and title. "
             . "Return only the summary text, no prefixes or labels:\n\n{$input}";
 
