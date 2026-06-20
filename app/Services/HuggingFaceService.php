@@ -36,8 +36,8 @@ class HuggingFaceService
         $lang = $language === 'gujarati' ? 'Gujarati' : 'English';
         $input = "Original title: {$originalTitle}\n\nArticle:\n" . mb_substr(trim($articleText), 0, 3000);
 
-        $prompt = "Rewrite this article's title as a concise, engaging one-liner headline in {$lang}. "
-            . "Maximum 12 words. Make it specific to the article, not generic. "
+        $prompt = "Rewrite this article's title as a clear, informative headline in {$lang} (2 lines max). "
+            . "Maximum 20 words. Make it specific to the article, not generic. "
             . "Return only the rewritten title, nothing else:\n\n{$input}";
 
         $result = $this->callGroq($prompt, 2);
@@ -45,7 +45,7 @@ class HuggingFaceService
             $result = preg_replace('/^["\']+|["\']+$/', '', trim($result));
             $result = html_entity_decode($result);
             $wordCount = count(preg_split('/\s+/', $result));
-            if ($wordCount > 18) {
+            if ($wordCount > 28) {
                 Log::warning("HuggingFaceService: rewritten title too long ({$wordCount} words), discarding");
                 return null;
             }
