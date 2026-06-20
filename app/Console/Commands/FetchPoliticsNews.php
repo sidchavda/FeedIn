@@ -461,7 +461,7 @@ class FetchPoliticsNews extends Command
         $bar->start();
 
         foreach ($pending as $i => &$art) {
-            $articleText = $art['ai_summarized']
+            $articleText = !empty($art['ai_summarized'])
                 ? $art['description']
                 : trim(strip_tags($art['description'] ?? ''));
             if (strlen($articleText) > 50 && !empty($art['title'])) {
