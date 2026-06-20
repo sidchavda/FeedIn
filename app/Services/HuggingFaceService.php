@@ -26,6 +26,33 @@ class HuggingFaceService
         return $this->summarizeText($pageText, $language, $targetWords, $title);
     }
 
+    public function rewriteTitle(string $originalTitle, string $articleText, string $language = 'english'): ?string
+    {
+        if (!$this->apiKey) {
+            Log::warning('HuggingFaceService: HF_API_KEY is not set');
+            return null;
+        }
+
+        $lang = $language === 'gujarati' ? 'Gujarati' : 'English';
+        $input = "Original title: {$originalTitle}\n\nArticle:\n" . mb_substr(trim($articleText), 0, 3000);
+
+        $prompt = "Rewrite this article's title as a concise, engaging one-liner headline in {$lang}. "
+            . "Maximum 12 words. Make it specific to the article, not generic. "
+            . "Return only the rewritten title, nothing else:\n\n{$input}";
+
+        $result = $this->callGroq($prompt, 2);
+        if ($result) {
+            $result = preg_replace('/^["\']+|["\']+$/', '', trim($result));
+            $result = html_entity_decode($result);
+            $wordCount = count(preg_split('/\s+/', $result));
+            if ($wordCount > 18) {
+                Log::warning("HuggingFaceService: rewritten title too long ({$wordCount} words), discarding");
+                return null;
+            }
+        }
+        return $result;
+    }
+
     public function summarizeText(string $text, string $language = 'english', int $targetWords = 70, string $title = ''): ?string
     {
         if (!$this->apiKey) {
@@ -111,7 +138,7 @@ class HuggingFaceService
         }
     }
 
-    private function callGroq(string $prompt): ?string
+    private function callGroq(string $prompt, int $minWords = 40): ?string
     {
         try {
             $model = 'qwen/qwen-2.5-72b-instruct';
@@ -142,7 +169,7 @@ class HuggingFaceService
                 $text = trim($text, '"\'');
                 // Reject if too short (AI returned a fragment, not a real summary)
                 $wordCount = count(preg_split('/\s+/', $text));
-                if ($wordCount < 40) {
+                if ($wordCount < $minWords) {
                     Log::warning("HuggingFaceService: summary too short ({$wordCount} words), discarding");
                     return null;
                 }

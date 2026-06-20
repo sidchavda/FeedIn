@@ -104,6 +104,7 @@ class FetchPoliticsNews extends Command
         }
 
         $this->summarizeWithGemini($pending, 'english');
+        $this->rewriteTitles($pending, 'english');
 
         $inserted = 0;
         $bar = $this->output->createProgressBar(count($pending));
@@ -438,6 +439,38 @@ class FetchPoliticsNews extends Command
                     Log::info('HF: summarized', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
                 } else {
                     Log::info('HF: failed (null)', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
+                }
+            }
+            $bar->advance();
+        }
+        unset($art);
+
+        $bar->finish();
+        $this->newLine();
+    }
+
+    private function rewriteTitles(array &$pending, string $language): void
+    {
+        $gemini = new HuggingFaceService();
+        if (!config('services.huggingface.api_key')) {
+            return;
+        }
+
+        $this->line('Rewriting titles with AI...');
+        $bar = $this->output->createProgressBar(count($pending));
+        $bar->start();
+
+        foreach ($pending as $i => &$art) {
+            $articleText = $art['ai_summarized']
+                ? $art['description']
+                : trim(strip_tags($art['description'] ?? ''));
+            if (strlen($articleText) > 50 && !empty($art['title'])) {
+                $newTitle = $gemini->rewriteTitle($art['title'], $articleText, $language);
+                if ($newTitle) {
+                    Log::info('HF: title rewritten', ['old' => mb_substr($art['title'], 0, 40), 'new' => mb_substr($newTitle, 0, 40)]);
+                    $art['title'] = $newTitle;
+                } else {
+                    Log::info('HF: title rewrite failed', ['title' => mb_substr($art['title'] ?? '', 0, 40)]);
                 }
             }
             $bar->advance();
