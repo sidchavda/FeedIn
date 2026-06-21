@@ -2,13 +2,13 @@
 
 namespace App\Console\Commands;
 
-use App\Models\News;
 use App\Models\Category;
 use App\Models\Language;
-use App\Services\HuggingFaceService;
+use App\Models\News;
+use App\Services\TextSummarizer;
 use GuzzleHttp\Client;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 
 class FetchGujaratiNews extends Command
 {
@@ -58,14 +58,14 @@ class FetchGujaratiNews extends Command
             if (empty($articles)) {
                 continue;
             }
-            $this->info("  Found " . count($articles) . " articles.");
+            $this->info('  Found '.count($articles).' articles.');
 
             foreach ($articles as $art) {
                 if (count($pending) >= $limit) {
                     break 2;
                 }
                 $link = $art['link'] ?? null;
-                if (!$link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+                if (! $link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
                     continue;
                 }
                 if (empty($art['title'])) {
@@ -86,32 +86,26 @@ class FetchGujaratiNews extends Command
 
         if (empty($pending)) {
             $this->warn('No new articles to insert.');
+
             return Command::SUCCESS;
         }
 
-        $this->info('New articles to process: ' . count($pending));
+        $this->info('New articles to process: '.count($pending));
 
-        $this->summarizeWithGemini($pending, 'gujarati');
-        $this->rewriteTitles($pending, 'gujarati');
+        $this->summarizeArticles($pending);
 
         $inserted = 0;
         $bar = $this->output->createProgressBar(count($pending));
         $bar->start();
 
         foreach ($pending as $art) {
-            $title = html_entity_decode(strip_tags($art['title']));
-            $title = trim(preg_replace('/\s+/', ' ', $title));
-
-            $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
-            if (!empty($art['ai_summarized'])) {
-                // Log::info('HF: stored', ['title' => mb_substr($title, 0, 60)]);
-            }
+            $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: $art['source'];
 
             try {
                 News::create([
-                    'title' => mb_substr($title, 0, 160),
+                    'title' => mb_substr($art['title'], 0, 160),
                     'link' => $art['link'],
                     'language_id' => $language->id,
                     'category_id' => $category->id,
@@ -122,9 +116,9 @@ class FetchGujaratiNews extends Command
                     'push_notification' => 0,
                 ]);
                 $inserted++;
-            } catch (\Illuminate\Database\QueryException $e) {
+            } catch (QueryException $e) {
                 if (str_contains($e->getMessage(), '23000')) {
-                    $this->warn('  Skipped duplicate: ' . mb_substr($title, 0, 60));
+                    $this->warn('  Skipped duplicate: '.mb_substr($art['title'], 0, 60));
                 } else {
                     throw $e;
                 }
@@ -135,6 +129,7 @@ class FetchGujaratiNews extends Command
         $bar->finish();
         $this->newLine();
         $this->info("Done. Inserted: {$inserted}");
+
         return Command::SUCCESS;
     }
 
@@ -156,7 +151,7 @@ class FetchGujaratiNews extends Command
 
             $response = $client->get($url);
             $xml = simplexml_load_string((string) $response->getBody());
-            if (!$xml || !isset($xml->channel)) {
+            if (! $xml || ! isset($xml->channel)) {
                 return [];
             }
 
@@ -165,7 +160,7 @@ class FetchGujaratiNews extends Command
 
             foreach ($items as $item) {
                 $link = trim((string) ($item->link ?? ''));
-                if (!$link) {
+                if (! $link) {
                     continue;
                 }
 
@@ -178,18 +173,18 @@ class FetchGujaratiNews extends Command
                         $attrs = $media->content->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
-                    if (!$image && isset($media->thumbnail)) {
+                    if (! $image && isset($media->thumbnail)) {
                         $attrs = $media->thumbnail->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
                 }
-                if (!$image && isset($item->enclosure)) {
+                if (! $image && isset($item->enclosure)) {
                     $attrs = $item->enclosure->attributes();
                     if (str_starts_with((string) ($attrs['type'] ?? ''), 'image/')) {
                         $image = (string) ($attrs['url'] ?? '');
                     }
                 }
-                if (!$image) {
+                if (! $image) {
                     $descHtml = (string) ($item->description ?? '');
                     if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $descHtml, $m)) {
                         $image = $m[1];
@@ -201,7 +196,7 @@ class FetchGujaratiNews extends Command
                     $dc = $item->children($namespaces['dc']);
                     $author = (string) ($dc->creator ?? '');
                 }
-                if (!$author) {
+                if (! $author) {
                     $author = (string) ($item->author ?? '');
                 }
 
@@ -224,6 +219,7 @@ class FetchGujaratiNews extends Command
             return $articles;
         } catch (\Exception $e) {
             $this->warn("  Error: {$e->getMessage()}");
+
             return [];
         }
     }
@@ -234,41 +230,10 @@ class FetchGujaratiNews extends Command
         $text = trim(preg_replace('/\s+/', ' ', $text));
         $text = trim($text);
         if (mb_strlen($text ?? '') > 500) {
-            $text = mb_substr($text, 0, 497) . '...';
+            $text = mb_substr($text, 0, 497).'...';
         }
+
         return $text ?: null;
-    }
-
-    private function rewriteTitles(array &$pending, string $language): void
-    {
-        $gemini = new HuggingFaceService();
-        if (!config('services.huggingface.api_key')) {
-            return;
-        }
-
-        $this->line('Rewriting titles with AI...');
-        $bar = $this->output->createProgressBar(count($pending));
-        $bar->start();
-
-        foreach ($pending as $i => &$art) {
-            $articleText = !empty($art['ai_summarized'])
-                ? $art['description']
-                : trim(strip_tags($art['description'] ?? ''));
-            if (strlen($articleText) > 50 && !empty($art['title'])) {
-                $newTitle = $gemini->rewriteTitle($art['title'], $articleText, $language);
-                if ($newTitle) {
-                    Log::info('HF: title rewritten', ['old' => mb_substr($art['title'], 0, 40), 'new' => mb_substr($newTitle, 0, 40)]);
-                    $art['title'] = $newTitle;
-                } else {
-                    Log::info('HF: title rewrite failed', ['title' => mb_substr($art['title'] ?? '', 0, 40)]);
-                }
-            }
-            $bar->advance();
-        }
-        unset($art);
-
-        $bar->finish();
-        $this->newLine();
     }
 
     private function normalizeTitle(string $title): string
@@ -276,26 +241,26 @@ class FetchGujaratiNews extends Command
         return preg_replace('/[^a-z0-9\s\x{0900}-\x{097F}]/u', '', mb_strtolower(trim($title)));
     }
 
-    private function summarizeWithGemini(array &$pending, string $language): void
+    private function summarizeArticles(array &$pending): void
     {
-        $gemini = new HuggingFaceService();
-        if (!config('services.huggingface.api_key')) {
-            return;
-        }
+        $summarizer = new TextSummarizer;
 
-        $this->line('Summarizing with Gemini AI...');
+        $this->line('Rewriting titles & summarizing articles...');
         $bar = $this->output->createProgressBar(count($pending));
         $bar->start();
 
         foreach ($pending as $i => &$art) {
-            if (!empty($art['link'])) {
-                $summary = $gemini->summarizeUrl($art['link'], $language, 70, $art['title'] ?? '');
+            $text = trim(strip_tags($art['description'] ?? ''));
+            if (mb_strlen($text) > 40) {
+                $rewrittenTitle = $summarizer->summarize($text, 20, 'gujarati');
+                if ($rewrittenTitle) {
+                    $art['title'] = $rewrittenTitle;
+                }
+
+                $summary = $summarizer->summarize($text, 55, 'gujarati');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
-                    // Log::info('HF: summarized', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
-                } else {
-                    // Log::info('HF: failed (null)', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
                 }
             }
             $bar->advance();
@@ -306,3 +271,4 @@ class FetchGujaratiNews extends Command
         $this->newLine();
     }
 }
+

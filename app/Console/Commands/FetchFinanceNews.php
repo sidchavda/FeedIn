@@ -2,15 +2,15 @@
 
 namespace App\Console\Commands;
 
-use App\Models\News;
 use App\Models\Category;
 use App\Models\Language;
-use App\Services\HuggingFaceService;
+use App\Models\News;
+use App\Services\TextSummarizer;
 use GuzzleHttp\Client;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 
 class FetchFinanceNews extends Command
 {
@@ -50,23 +50,24 @@ class FetchFinanceNews extends Command
             $sourceName = $this->sourceNameFromUrl($feedUrl);
             $articles = $this->parseFeed($feedUrl, $sourceName);
             if (empty($articles)) {
-                $this->warn("  No articles from this source.");
+                $this->warn('  No articles from this source.');
+
                 continue;
             }
-            $this->info("  Found " . count($articles) . " articles.");
+            $this->info('  Found '.count($articles).' articles.');
             foreach ($articles as $art) {
                 if (count($pending) >= $limit) {
                     break 2;
                 }
                 $link = $art['link'] ?? null;
-                if (!$link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+                if (! $link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
                     continue;
                 }
                 if (empty($art['title'])) {
                     continue;
                 }
                 $titleCheck = html_entity_decode(strip_tags($art['title']));
-                if (!$this->isFinanceRelated($titleCheck)) {
+                if (! $this->isFinanceRelated($titleCheck)) {
                     continue;
                 }
                 if (empty($art['image'])) {
@@ -84,10 +85,11 @@ class FetchFinanceNews extends Command
 
         if (empty($pending)) {
             $this->warn('No new articles to insert.');
+
             return Command::SUCCESS;
         }
 
-        $this->info('New articles to process: ' . count($pending));
+        $this->info('New articles to process: '.count($pending));
 
         // 2. Fetch article pages for descriptions and author where needed
         $sourceFallbacks = ['Moneycontrol News', 'Economic Times', 'Livemint', 'Business Standard', 'NDTV Profit', 'Google News', 'Financial News'];
@@ -101,13 +103,12 @@ class FetchFinanceNews extends Command
             }
         }
 
-        if (!empty($needsFetch)) {
+        if (! empty($needsFetch)) {
             $this->line('Fetching article pages...');
             $this->fetchDescriptions($needsFetch, $pending);
         }
 
-        $this->summarizeWithGemini($pending, 'english');
-        $this->rewriteTitles($pending, 'english');
+        $this->summarizeArticles($pending);
 
         // 3. Insert into database
         $inserted = 0;
@@ -115,19 +116,13 @@ class FetchFinanceNews extends Command
         $bar->start();
 
         foreach ($pending as $art) {
-            $title = html_entity_decode(strip_tags($art['title']));
-            $title = trim(preg_replace('/\s+/', ' ', $title));
-
-            $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $title);
-            if (!empty($art['ai_summarized'])) {
-                // Log::info('HF: stored', ['title' => mb_substr($title, 0, 60)]);
-            }
+            $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: ($art['source'] ?? 'Financial News');
 
             try {
                 News::create([
-                    'title' => mb_substr($title, 0, 160),
+                    'title' => mb_substr($art['title'], 0, 160),
                     'link' => $art['link'],
                     'language_id' => $language->id,
                     'category_id' => $category->id,
@@ -138,9 +133,9 @@ class FetchFinanceNews extends Command
                     'push_notification' => 0,
                 ]);
                 $inserted++;
-            } catch (\Illuminate\Database\QueryException $e) {
+            } catch (QueryException $e) {
                 if ($e->getCode() === '23000') {
-                    $this->warn("  Skipped duplicate: " . mb_substr($title, 0, 60));
+                    $this->warn('  Skipped duplicate: '.mb_substr($art['title'], 0, 60));
                 } else {
                     throw $e;
                 }
@@ -152,6 +147,7 @@ class FetchFinanceNews extends Command
         $bar->finish();
         $this->newLine();
         $this->info("Done. Inserted: {$inserted}");
+
         return Command::SUCCESS;
     }
 
@@ -221,7 +217,7 @@ class FetchFinanceNews extends Command
 
     private function cleanDescription(?string $raw, string $title = ''): ?string
     {
-        if (!$raw && !$title) {
+        if (! $raw && ! $title) {
             return null;
         }
 
@@ -238,16 +234,16 @@ class FetchFinanceNews extends Command
             $words = array_slice($words, 0, 70);
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-            $text = rtrim($text, ',;:') . '.';
+            $text = rtrim($text, ',;:').'.';
         } elseif ($wordCount < 68) {
             $needed = 70 - $wordCount;
-            $text .= ' ' . $this->supplementSummary($text, $title, max($needed, 5));
+            $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
             $words = preg_split('/\s+/', trim($text ?? ''));
             if (count($words) > 75) {
                 $words = array_slice($words, 0, 70);
                 $text = implode(' ', $words);
                 $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-                $text = rtrim($text, ',;:') . '.';
+                $text = rtrim($text, ',;:').'.';
             }
         }
 
@@ -256,7 +252,7 @@ class FetchFinanceNews extends Command
 
     private function supplementSummary(string $existing, string $title, int $targetWords = 25): string
     {
-        $combined = strtolower($title . ' ' . $existing);
+        $combined = strtolower($title.' '.$existing);
 
         $templates = [];
 
@@ -305,7 +301,7 @@ class FetchFinanceNews extends Command
         foreach ($templates as $sent) {
             $wc = str_word_count($sent);
             if ($added + $wc <= $targetWords) {
-                $result .= ' ' . $sent;
+                $result .= ' '.$sent;
                 $added += $wc;
             } else {
                 break;
@@ -371,9 +367,12 @@ class FetchFinanceNews extends Command
                     $lower = strtolower($clean);
                     $isNoise = false;
                     foreach ($skipPhrases as $skip) {
-                        if (str_contains($lower, $skip)) { $isNoise = true; break; }
+                        if (str_contains($lower, $skip)) {
+                            $isNoise = true;
+                            break;
+                        }
                     }
-                    if (strlen($clean) > 80 && !$isNoise) {
+                    if (strlen($clean) > 80 && ! $isNoise) {
                         $paragraphs[] = $clean;
                         $wordCount += str_word_count($clean);
                         if ($wordCount > 120) {
@@ -384,7 +383,7 @@ class FetchFinanceNews extends Command
 
                 // Find the original article index
                 $originalIndex = array_search($needsFetch[$index], array_column($pending, 'link'));
-                if ($originalIndex !== false && !empty($paragraphs)) {
+                if ($originalIndex !== false && ! empty($paragraphs)) {
                     $pending[$originalIndex]['description'] = implode(' ', $paragraphs);
                 }
 
@@ -394,16 +393,16 @@ class FetchFinanceNews extends Command
                     if (preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                         $author = trim($m[1]);
                     }
-                    if (!$author && preg_match('/<meta[^>]+property=["\']article:author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                    if (! $author && preg_match('/<meta[^>]+property=["\']article:author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                         $author = trim($m[1]);
                     }
-                    if (!$author && preg_match('/<span[^>]*class=["\'][^"\']*\bauthor\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
+                    if (! $author && preg_match('/<span[^>]*class=["\'][^"\']*\bauthor\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
                         $author = trim(strip_tags($m[1]));
                     }
-                    if (!$author && preg_match('/<a[^>]*rel=["\']author["\'][^>]*>(.+?)<\/a>/is', $html, $m)) {
+                    if (! $author && preg_match('/<a[^>]*rel=["\']author["\'][^>]*>(.+?)<\/a>/is', $html, $m)) {
                         $author = trim(strip_tags($m[1]));
                     }
-                    if (!$author && preg_match('/<span[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
+                    if (! $author && preg_match('/<span[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
                         $author = trim(strip_tags(preg_replace('/^By\s*/i', '', $m[1])));
                     }
                     if ($author) {
@@ -438,7 +437,7 @@ class FetchFinanceNews extends Command
 
             $response = $client->get($url);
             $xml = simplexml_load_string((string) $response->getBody());
-            if (!$xml) {
+            if (! $xml) {
                 return [];
             }
 
@@ -447,7 +446,7 @@ class FetchFinanceNews extends Command
 
             foreach ($items as $item) {
                 $link = trim((string) ($item->link ?? ''));
-                if (!$link) {
+                if (! $link) {
                     continue;
                 }
 
@@ -461,19 +460,19 @@ class FetchFinanceNews extends Command
                         $attrs = $media->content->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
-                    if (!$image && isset($media->thumbnail)) {
+                    if (! $image && isset($media->thumbnail)) {
                         $attrs = $media->thumbnail->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
                 }
-                if (!$image && isset($item->enclosure)) {
+                if (! $image && isset($item->enclosure)) {
                     $attrs = $item->enclosure->attributes();
                     if (str_starts_with((string) ($attrs['type'] ?? ''), 'image/')) {
                         $image = (string) ($attrs['url'] ?? '');
                     }
                 }
                 // Fallback: extract first <img> from description HTML
-                if (!$image) {
+                if (! $image) {
                     $descHtml = (string) ($item->description ?? '');
                     if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $descHtml, $m)) {
                         $image = $m[1];
@@ -486,7 +485,7 @@ class FetchFinanceNews extends Command
                     $dc = $item->children($namespaces['dc']);
                     $author = (string) ($dc->creator ?? '');
                 }
-                if (!$author) {
+                if (! $author) {
                     $author = (string) ($item->author ?? '');
                 }
 
@@ -510,6 +509,7 @@ class FetchFinanceNews extends Command
             return $articles;
         } catch (\Exception $e) {
             $this->warn("  Error: {$e->getMessage()}");
+
             return [];
         }
     }
@@ -550,31 +550,30 @@ class FetchFinanceNews extends Command
         if (str_contains($url, 'news.google.com')) {
             return 'Google News';
         }
+
         return 'Financial News';
     }
 
-    private function rewriteTitles(array &$pending, string $language): void
+    private function summarizeArticles(array &$pending): void
     {
-        $gemini = new HuggingFaceService();
-        if (!config('services.huggingface.api_key')) {
-            return;
-        }
+        $summarizer = new TextSummarizer;
 
-        $this->line('Rewriting titles with AI...');
+        $this->line('Rewriting titles & summarizing articles...');
         $bar = $this->output->createProgressBar(count($pending));
         $bar->start();
 
         foreach ($pending as $i => &$art) {
-            $articleText = !empty($art['ai_summarized'])
-                ? $art['description']
-                : trim(strip_tags($art['description'] ?? ''));
-            if (strlen($articleText) > 50 && !empty($art['title'])) {
-                $newTitle = $gemini->rewriteTitle($art['title'], $articleText, $language);
-                if ($newTitle) {
-                    Log::info('HF: title rewritten', ['old' => mb_substr($art['title'], 0, 40), 'new' => mb_substr($newTitle, 0, 40)]);
-                    $art['title'] = $newTitle;
-                } else {
-                    Log::info('HF: title rewrite failed', ['title' => mb_substr($art['title'] ?? '', 0, 40)]);
+            $text = trim(strip_tags($art['description'] ?? ''));
+            if (mb_strlen($text) > 40) {
+                $rewrittenTitle = $summarizer->summarize($text, 20, 'english');
+                if ($rewrittenTitle) {
+                    $art['title'] = $rewrittenTitle;
+                }
+
+                $summary = $summarizer->summarize($text, 55, 'english');
+                if ($summary) {
+                    $art['description'] = $summary;
+                    $art['ai_summarized'] = true;
                 }
             }
             $bar->advance();
@@ -588,35 +587,5 @@ class FetchFinanceNews extends Command
     private function normalizeTitle(string $title): string
     {
         return preg_replace('/[^a-z0-9\s]/', '', strtolower(trim($title)));
-    }
-
-    private function summarizeWithGemini(array &$pending, string $language): void
-    {
-        $gemini = new HuggingFaceService();
-        if (!config('services.huggingface.api_key')) {
-            return;
-        }
-
-        $this->line('Summarizing with Gemini AI...');
-        $bar = $this->output->createProgressBar(count($pending));
-        $bar->start();
-
-        foreach ($pending as $i => &$art) {
-            if (!empty($art['link'])) {
-                $summary = $gemini->summarizeUrl($art['link'], $language, 70, $art['title'] ?? '');
-                if ($summary) {
-                    $art['description'] = $summary;
-                    $art['ai_summarized'] = true;
-                    // Log::info('HF: summarized', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
-                } else {
-                    // Log::info('HF: failed (null)', ['title' => mb_substr($art['title'] ?? '', 0, 60)]);
-                }
-            }
-            $bar->advance();
-        }
-        unset($art);
-
-        $bar->finish();
-        $this->newLine();
     }
 }
