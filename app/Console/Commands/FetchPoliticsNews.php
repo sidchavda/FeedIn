@@ -113,6 +113,11 @@ class FetchPoliticsNews extends Command
 
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
+            if (empty($desc) || count(preg_split('/\s+/', trim($desc))) < 40) {
+                $this->warn('  Skipped (short description): '.mb_substr($art['title'], 0, 60));
+                $bar->advance();
+                continue;
+            }
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: ($art['source'] ?? 'Politics News');
 
@@ -423,12 +428,12 @@ class FetchPoliticsNews extends Command
         foreach ($pending as $i => &$art) {
             $text = trim(strip_tags($art['description'] ?? ''));
             if (mb_strlen($text) > 40) {
-                $rewrittenTitle = $summarizer->summarize($text, 10, 'english');
+                $rewrittenTitle = $summarizer->summarize($text, 14, 'english');
                 if ($rewrittenTitle) {
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 75, 'english');
+                $summary = $summarizer->summarize($text, 65, 'english');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
