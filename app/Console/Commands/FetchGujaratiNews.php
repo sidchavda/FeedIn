@@ -257,7 +257,7 @@ class FetchGujaratiNews extends Command
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 55, 'gujarati');
+                $summary = $summarizer->summarize($text, 75, 'gujarati');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;

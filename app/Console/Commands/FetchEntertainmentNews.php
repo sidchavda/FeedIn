@@ -429,7 +429,7 @@ class FetchEntertainmentNews extends Command
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 55, 'english');
+                $summary = $summarizer->summarize($text, 75, 'english');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;

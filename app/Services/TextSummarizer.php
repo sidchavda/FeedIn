@@ -25,10 +25,6 @@ class TextSummarizer
 
         $scores = $this->scoreSentences($sentences, $keywordScores, $language);
 
-        if (isset($scores[0])) {
-            $scores[0] += 10;
-        }
-
         arsort($scores);
 
         $selectedIndices = [];
