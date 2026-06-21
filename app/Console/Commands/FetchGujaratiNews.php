@@ -19,12 +19,12 @@ class FetchGujaratiNews extends Command
     protected $description = 'Fetch Gujarati news from Divya Bhaskar and News18 Gujarati';
 
     private array $feeds = [
-        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1035.xml', 'source' => 'Divya Bhaskar'],
-        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1037.xml', 'source' => 'Divya Bhaskar'],
-        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1038.xml', 'source' => 'Divya Bhaskar'],
-        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-969.xml', 'source' => 'Divya Bhaskar'],
-        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-970.xml', 'source' => 'Divya Bhaskar'],
-        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-12042.xml', 'source' => 'Divya Bhaskar'],
+        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1035.xml', 'source' => 'Divya Bhaskar'],
+        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1037.xml', 'source' => 'Divya Bhaskar'],
+        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1038.xml', 'source' => 'Divya Bhaskar'],
+        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-969.xml', 'source' => 'Divya Bhaskar'],
+        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-970.xml', 'source' => 'Divya Bhaskar'],
+        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-12042.xml', 'source' => 'Divya Bhaskar'],
         ['url' => 'https://gujarati.news18.com/commonfeeds/v1/guj/rss/latest.xml', 'source' => 'News18 Gujarati'],
     ];
 
@@ -252,7 +252,7 @@ class FetchGujaratiNews extends Command
         foreach ($pending as $i => &$art) {
             $text = trim(strip_tags($art['description'] ?? ''));
             if (mb_strlen($text) > 40) {
-                $rewrittenTitle = $summarizer->summarize($text, 14, 'gujarati');
+                $rewrittenTitle = $summarizer->summarize($text, 10, 'gujarati');
                 if ($rewrittenTitle) {
                     $art['title'] = $rewrittenTitle;
                 }
