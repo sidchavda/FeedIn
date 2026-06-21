@@ -435,7 +435,7 @@ class FetchSportsNews extends Command
         foreach ($pending as $i => &$art) {
             $text = trim(strip_tags($art['description'] ?? ''));
             if (mb_strlen($text) > 40) {
-                $rewrittenTitle = $summarizer->summarize($text, 20, 'english');
+                $rewrittenTitle = $summarizer->summarize($text, 14, 'english');
                 if ($rewrittenTitle) {
                     $art['title'] = $rewrittenTitle;
                 }
