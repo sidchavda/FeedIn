@@ -19,9 +19,14 @@ class FetchEntertainmentNews extends Command
         {--source= : Custom RSS feed URL}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch entertainment news from Pinkvilla RSS feed';
+    protected $description = 'Fetch entertainment news from Pinkvilla, Times of India, MissMalini & Hollywood Reporter India';
 
-    private string $feedUrl = 'https://www.pinkvilla.com/rss.xml';
+    private array $feeds = [
+        ['url' => 'https://www.pinkvilla.com/rss.xml', 'source' => 'Pinkvilla'],
+        ['url' => 'https://timesofindia.indiatimes.com/rssfeeds/1081479906.cms', 'source' => 'Times of India'],
+        ['url' => 'https://news.google.com/rss/search?q=site:missmalini.com&hl=en-IN&gl=IN&ceid=IN:en', 'source' => 'MissMalini'],
+        ['url' => 'https://www.hollywoodreporterindia.com/stories.rss', 'source' => 'Hollywood Reporter India'],
+    ];
 
     public function handle(): int
     {
@@ -31,42 +36,49 @@ class FetchEntertainmentNews extends Command
 
         $existingLinks = News::pluck('link')->flip();
         $existingTitles = News::pluck('title')->map(fn ($t) => $this->normalizeTitle($t))->flip();
-        $feedUrl = $this->option('source') ?: $this->feedUrl;
-
-        $this->line("Fetching RSS: {$feedUrl}");
-        $articles = $this->parseFeed($feedUrl);
-        if (empty($articles)) {
-            $this->warn('No articles found.');
-
-            return Command::SUCCESS;
-        }
-        $this->info('Found '.count($articles).' articles.');
+        $feedList = $this->option('source') ? [['url' => $this->option('source'), 'source' => 'Custom']] : $this->feeds;
 
         $pending = [];
         $seenLinks = [];
         $seenTitles = [];
 
-        foreach ($articles as $art) {
+        foreach ($feedList as $feed) {
             if (count($pending) >= $limit) {
                 break;
             }
-            $link = $art['link'] ?? null;
-            if (! $link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+            $feedUrl = $feed['url'];
+            $source = $feed['source'];
+            $this->line("Fetching: {$source}");
+            $articles = $this->parseFeed($feedUrl, $source);
+            if (empty($articles)) {
+                $this->warn('  No articles from this source.');
+
                 continue;
             }
-            if (empty($art['title'])) {
-                continue;
+            $this->info('  Found '.count($articles).' articles.');
+
+            foreach ($articles as $art) {
+                if (count($pending) >= $limit) {
+                    break 2;
+                }
+                $link = $art['link'] ?? null;
+                if (! $link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+                    continue;
+                }
+                if (empty($art['title'])) {
+                    continue;
+                }
+                if (empty($art['image'])) {
+                    continue;
+                }
+                $normalized = $this->normalizeTitle($art['title']);
+                if (isset($existingTitles[$normalized]) || isset($seenTitles[$normalized])) {
+                    continue;
+                }
+                $pending[] = $art;
+                $seenLinks[$link] = true;
+                $seenTitles[$normalized] = true;
             }
-            if (empty($art['image'])) {
-                continue;
-            }
-            $normalized = $this->normalizeTitle($art['title']);
-            if (isset($existingTitles[$normalized]) || isset($seenTitles[$normalized])) {
-                continue;
-            }
-            $pending[] = $art;
-            $seenLinks[$link] = true;
-            $seenTitles[$normalized] = true;
         }
 
         if (empty($pending)) {
@@ -103,7 +115,7 @@ class FetchEntertainmentNews extends Command
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
             $image = $art['image'] ?? null;
-            $author = $art['author'] ?: 'Pinkvilla';
+            $author = $art['author'] ?: ($art['source'] ?? 'Entertainment News');
 
             try {
                 News::create([
@@ -135,7 +147,7 @@ class FetchEntertainmentNews extends Command
         return Command::SUCCESS;
     }
 
-    private function parseFeed(string $url): array
+    private function parseFeed(string $url, string $source = ''): array
     {
         try {
             $client = new Client([
@@ -217,7 +229,7 @@ class FetchEntertainmentNews extends Command
                     'description' => $desc,
                     'image' => $image,
                     'author' => $author,
-                    'source' => 'Pinkvilla',
+                    'source' => $source ?: 'Pinkvilla',
                 ];
             }
 
