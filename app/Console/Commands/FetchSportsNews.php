@@ -119,9 +119,9 @@ class FetchSportsNews extends Command
 
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
-            if (empty($desc) || count(preg_split('/\s+/', trim($desc))) < 40) {
-                $this->warn('  Skipped (short description): '.mb_substr($art['title'], 0, 60));
+            if (empty($desc)) {
                 $bar->advance();
+
                 continue;
             }
             $image = $art['image'] ?? null;
