@@ -16,16 +16,17 @@ class FetchGujaratiNews extends Command
         {--limit=50 : Max articles to insert per run}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch Gujarati news from Divya Bhaskar and News18 Gujarati';
+    protected $description = 'Fetch Gujarati news from Divya Bhaskar, News18 Gujarati & Gujarat Samachar';
 
     private array $feeds = [
-        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1035.xml', 'source' => 'Divya Bhaskar'],
-        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1037.xml', 'source' => 'Divya Bhaskar'],
-        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1038.xml', 'source' => 'Divya Bhaskar'],
-        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-969.xml', 'source' => 'Divya Bhaskar'],
-        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-970.xml', 'source' => 'Divya Bhaskar'],
-        // ['url' => 'https://divyabhaskar.co.in/rss-v1--category-12042.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1035.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1037.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-1038.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-969.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-970.xml', 'source' => 'Divya Bhaskar'],
+        ['url' => 'https://divyabhaskar.co.in/rss-v1--category-12042.xml', 'source' => 'Divya Bhaskar'],
         ['url' => 'https://gujarati.news18.com/commonfeeds/v1/guj/rss/latest.xml', 'source' => 'News18 Gujarati'],
+        ['url' => 'https://www.gujaratsamachar.com/rss/top-stories', 'source' => 'Gujarat Samachar'],
     ];
 
     public function handle(): int
@@ -43,54 +44,81 @@ class FetchGujaratiNews extends Command
         $existingLinks = News::pluck('link')->flip();
         $existingTitles = News::pluck('title')->map(fn ($t) => $this->normalizeTitle($t))->flip();
 
-        $pending = [];
-        $seenLinks = [];
-        $seenTitles = [];
-
+        // Parse all feeds into per-source buckets
+        $buckets = [];
         foreach ($this->feeds as $feed) {
-            if (count($pending) >= $limit) {
-                break;
-            }
-            $feedUrl = $feed['url'];
             $source = $feed['source'];
             $this->line("Fetching: {$source}");
-            $articles = $this->parseFeed($feedUrl, $source);
+            $articles = $this->parseFeed($feed['url'], $source);
             if (empty($articles)) {
                 continue;
             }
             $this->info('  Found '.count($articles).' articles.');
-
+            $unique = [];
             foreach ($articles as $art) {
+                $link = $art['link'] ?? null;
+                if (! $link || isset($existingLinks[$link])) {
+                    continue;
+                }
+                if (empty($art['title']) || empty($art['image'])) {
+                    continue;
+                }
+                $key = $this->normalizeTitle($art['title']);
+                if (isset($existingTitles[$key])) {
+                    continue;
+                }
+                $unique[$key] = $art;
+            }
+            if (! empty($unique)) {
+                $buckets[$source] = array_values($unique);
+            }
+        }
+
+        if (empty($buckets)) {
+            $this->warn('No new articles to insert.');
+
+            return Command::SUCCESS;
+        }
+
+        // Round-robin interleave across sources
+        $pending = [];
+        $seenLinks = [];
+        $seenTitles = [];
+        $sourceNames = array_keys($buckets);
+        $indexes = array_fill_keys($sourceNames, 0);
+
+        while (count($pending) < $limit) {
+            $anyRemaining = false;
+            foreach ($sourceNames as $src) {
                 if (count($pending) >= $limit) {
                     break 2;
                 }
-                $link = $art['link'] ?? null;
-                if (! $link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+                $idx = $indexes[$src];
+                if (! isset($buckets[$src][$idx])) {
                     continue;
                 }
-                if (empty($art['title'])) {
-                    continue;
-                }
-                if (empty($art['image'])) {
-                    continue;
-                }
+                $anyRemaining = true;
+                $art = $buckets[$src][$idx];
+                $indexes[$src]++;
+
+                $link = $art['link'];
                 $normalized = $this->normalizeTitle($art['title']);
-                if (isset($existingTitles[$normalized]) || isset($seenTitles[$normalized])) {
+                if (isset($seenLinks[$link]) || isset($seenTitles[$normalized])) {
                     continue;
                 }
                 $pending[] = $art;
                 $seenLinks[$link] = true;
                 $seenTitles[$normalized] = true;
             }
-        }
-
-        if (empty($pending)) {
-            $this->warn('No new articles to insert.');
-
-            return Command::SUCCESS;
+            if (! $anyRemaining) {
+                break;
+            }
         }
 
         $this->info('New articles to process: '.count($pending));
+        if (empty($pending)) {
+            return Command::SUCCESS;
+        }
 
         $this->summarizeArticles($pending);
 
@@ -271,4 +299,3 @@ class FetchGujaratiNews extends Command
         $this->newLine();
     }
 }
-
