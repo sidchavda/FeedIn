@@ -100,9 +100,9 @@ class FetchGujaratiNews extends Command
 
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
-            if (empty($desc)) {
+            if (empty($desc) || count(preg_split('/\s+/', trim($desc))) < 40) {
+                $this->warn('  Skipped (short description): '.mb_substr($art['title'], 0, 60));
                 $bar->advance();
-
                 continue;
             }
             $image = $art['image'] ?? null;
@@ -276,3 +276,4 @@ class FetchGujaratiNews extends Command
         $this->newLine();
     }
 }
+
