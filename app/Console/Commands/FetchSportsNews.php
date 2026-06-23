@@ -305,7 +305,7 @@ class FetchSportsNews extends Command
                     if (strlen($clean) > 80 && ! $isNoise) {
                         $paragraphs[] = $clean;
                         $wordCount += str_word_count($clean);
-                        if ($wordCount > 120) {
+                        if ($wordCount > 250) {
                             break;
                         }
                     }
@@ -361,17 +361,22 @@ class FetchSportsNews extends Command
         $words = preg_split('/\s+/', $text);
         $wordCount = count($words);
 
-        if ($wordCount > 75) {
-            $words = array_slice($words, 0, 70);
+        if ($wordCount > 130) {
+            $words = array_slice($words, 0, 120);
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
             $text = rtrim($text, ',;:').'.';
-        } elseif ($wordCount < 68) {
-            $needed = 70 - $wordCount;
-            $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
+        } elseif ($wordCount < 80) {
+            for ($i = 0; $i < 3; $i++) {
+                $needed = 120 - count(preg_split('/\s+/', trim($text ?? '')));
+                if ($needed <= 5) {
+                    break;
+                }
+                $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
+            }
             $words = preg_split('/\s+/', trim($text ?? ''));
-            if (count($words) > 75) {
-                $words = array_slice($words, 0, 70);
+            if (count($words) > 130) {
+                $words = array_slice($words, 0, 120);
                 $text = implode(' ', $words);
                 $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
                 $text = rtrim($text, ',;:').'.';
@@ -387,26 +392,39 @@ class FetchSportsNews extends Command
 
         $templates = [];
 
-        if (preg_match('/match|score|win|lose|defeat|victory|series|tour|championship|final|semi|quarter/i', $combined)) {
+        if (preg_match('/match|score|win|lose|defeat|victory|series|tour|championship|final|semi|quarter|league|standings|table/i', $combined)) {
             $templates[] = 'This match result adds another chapter to the ongoing competition, with implications for team standings and future fixtures in the tournament.';
             $templates[] = 'Fans and analysts will be closely examining this performance as the tournament progresses toward its decisive stages.';
-        } elseif (preg_match('/transfer|signing|contract|trade|deal|join|move|buy|sell/i', $combined)) {
+            $templates[] = 'The outcome could significantly influence the momentum and morale of both teams as they prepare for upcoming challenges.';
+            $templates[] = 'With several key matches still to be played, every result becomes crucial in determining the final standings and playoff qualifications.';
+        } elseif (preg_match('/transfer|signing|contract|trade|deal|join|move|buy|sell|auction/i', $combined)) {
             $templates[] = 'This transfer marks a significant move in the sports world, with potential implications for team dynamics and future performance.';
             $templates[] = 'Industry experts are already analysing how this acquisition will impact the team\'s strategy and competitive standing.';
-        } elseif (preg_match('/injury|recovery|return|comeback|surgery|fitness/i', $combined)) {
+            $templates[] = 'The financial details and contract length are being closely scrutinised by analysts evaluating the long-term value of this deal.';
+            $templates[] = 'Fans have reacted strongly to the news, with social media buzzing about how this move could reshape the team\'s prospects in the coming season.';
+        } elseif (preg_match('/injury|recovery|return|comeback|surgery|fitness|rehab/i', $combined)) {
             $templates[] = 'The athlete\'s health and fitness journey is being closely monitored by fans and team management alike as they work toward full recovery.';
             $templates[] = 'Medical staff and coaching teams are taking all necessary precautions to ensure a safe and timely return to competitive action.';
-        } elseif (preg_match('/record|milestone|century|hat-trick|landmark|personal best|achievement/i', $combined)) {
+            $templates[] = 'The rehabilitation process follows a structured programme designed to gradually restore strength, mobility, and match readiness.';
+            $templates[] = 'Team management has indicated they will not rush the player back, prioritising long-term health over short-term gains.';
+        } elseif (preg_match('/record|milestone|century|hat-trick|landmark|personal best|achievement|trophy|title/i', $combined)) {
             $templates[] = 'This remarkable achievement adds to the athlete\'s illustrious career and will be remembered as a milestone in the sport\'s history.';
             $templates[] = 'The achievement underscores the athlete\'s exceptional talent, dedication, and contribution to their sport over the years.';
-        } elseif (preg_match('/olymp|asian game|commonwealth|world cup|world championship/i', $combined)) {
+            $templates[] = 'This feat places the athlete among an elite group who have accomplished similar milestones in the history of the game.';
+            $templates[] = 'Former players and contemporaries have heaped praise on the achievement, recognising the hard work and perseverance behind it.';
+        } elseif (preg_match('/olymp|asian game|commonwealth|world cup|world championship|tournament|championship/i', $combined)) {
             $templates[] = 'Preparations for this major sporting event are underway with athletes and teams working tirelessly to represent their nations at the highest level.';
             $templates[] = 'The event promises intense competition as the world\'s best athletes gather to showcase their skills and compete for glory.';
+            $templates[] = 'National selectors face tough decisions as they finalise the squad, balancing experience with fresh talent for the championship.';
+            $templates[] = 'Sponsors and broadcasters are gearing up for what promises to be one of the most-watched sporting events of the year.';
         }
 
         if (empty($templates)) {
             $templates[] = 'This sports news has generated considerable interest among fans and analysts who are closely following developments in the sporting world.';
             $templates[] = 'The sporting landscape continues to evolve with exciting developments that capture the attention of audiences worldwide.';
+            $templates[] = 'Industry observers are tracking this story closely as more details emerge about its potential impact on the wider sporting ecosystem.';
+            $templates[] = 'Stakeholders across the sporting community are weighing in, offering diverse perspectives on what this could mean for the future of the game.';
+            $templates[] = 'As the situation develops, fans can expect further updates and analysis from experts covering every angle of this ongoing story.';
         }
 
         $result = '';
@@ -434,13 +452,13 @@ class FetchSportsNews extends Command
 
         foreach ($pending as $i => &$art) {
             $text = trim(strip_tags($art['description'] ?? ''));
-            if (mb_strlen($text) > 10) {
+            if (mb_strlen($text) > 40) {
                 $rewrittenTitle = $summarizer->summarize($text, 10, 'english');
                 if ($rewrittenTitle) {
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 100, 'english');
+                $summary = $summarizer->summarize($text, 150, 'english');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;

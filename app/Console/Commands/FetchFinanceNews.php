@@ -230,17 +230,22 @@ class FetchFinanceNews extends Command
         $words = preg_split('/\s+/', $text);
         $wordCount = count($words);
 
-        if ($wordCount > 75) {
-            $words = array_slice($words, 0, 70);
+        if ($wordCount > 130) {
+            $words = array_slice($words, 0, 120);
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
             $text = rtrim($text, ',;:').'.';
-        } elseif ($wordCount < 68) {
-            $needed = 70 - $wordCount;
-            $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
+        } elseif ($wordCount < 80) {
+            for ($i = 0; $i < 3; $i++) {
+                $needed = 120 - count(preg_split('/\s+/', trim($text ?? '')));
+                if ($needed <= 5) {
+                    break;
+                }
+                $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
+            }
             $words = preg_split('/\s+/', trim($text ?? ''));
-            if (count($words) > 75) {
-                $words = array_slice($words, 0, 70);
+            if (count($words) > 130) {
+                $words = array_slice($words, 0, 120);
                 $text = implode(' ', $words);
                 $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
                 $text = rtrim($text, ',;:').'.';
@@ -375,7 +380,7 @@ class FetchFinanceNews extends Command
                     if (strlen($clean) > 80 && ! $isNoise) {
                         $paragraphs[] = $clean;
                         $wordCount += str_word_count($clean);
-                        if ($wordCount > 120) {
+                        if ($wordCount > 250) {
                             break;
                         }
                     }
@@ -570,7 +575,7 @@ class FetchFinanceNews extends Command
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 75, 'english');
+                $summary = $summarizer->summarize($text, 150, 'english');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
