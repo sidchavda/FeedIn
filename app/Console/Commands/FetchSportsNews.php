@@ -19,16 +19,12 @@ class FetchSportsNews extends Command
         {--source= : Custom RSS feed URL}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch sports news from ESPNcricinfo and The Bridge';
+    protected $description = 'Fetch sports news from The Hindu Sport';
 
     private array $feeds = [
         [
-            'url' => 'https://www.espncricinfo.com/rss/content/story/feeds/0.xml',
-            'source' => 'ESPNcricinfo',
-        ],
-        [
-            'url' => 'https://thebridge.in/feed',
-            'source' => 'The Bridge',
+            'url' => 'https://www.thehindu.com/sport/feeder/default.rss',
+            'source' => 'The Hindu',
         ],
     ];
 
@@ -94,7 +90,7 @@ class FetchSportsNews extends Command
         $this->info('New articles to process: '.count($pending));
 
         // Fetch article pages for descriptions and author where needed
-        $sourceFallbacks = ['ESPNcricinfo', 'The Bridge', 'Custom'];
+        $sourceFallbacks = ['The Hindu', 'Custom'];
         $needsFetch = [];
         foreach ($pending as $i => $art) {
             $desc = trim(strip_tags($art['description'] ?? ''));
@@ -286,10 +282,25 @@ class FetchSportsNews extends Command
                 // Body paragraphs
                 preg_match_all('/<p[^>]*>(.+?)<\/p>/is', $html, $pTags);
                 $wordCount = 0;
-                $skipPhrases = ['skip to navigation', 'skip to main', 'skip to content', 'advertisement',
-                    'read more', 'related:', 'sign up', 'newsletter', 'terms of service',
-                    'privacy policy', 'all rights reserved', 'cookie', 'subscribe',
-                    'trending now', 'recommended', 'also read', 'follow us'];
+                $skipPhrases = [
+                    'skip to navigation',
+                    'skip to main',
+                    'skip to content',
+                    'advertisement',
+                    'read more',
+                    'related:',
+                    'sign up',
+                    'newsletter',
+                    'terms of service',
+                    'privacy policy',
+                    'all rights reserved',
+                    'cookie',
+                    'subscribe',
+                    'trending now',
+                    'recommended',
+                    'also read',
+                    'follow us',
+                ];
                 foreach ($pTags[1] as $p) {
                     $clean = trim(strip_tags($p));
                     $clean = html_entity_decode($clean);
@@ -458,7 +469,7 @@ class FetchSportsNews extends Command
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 150, 'english');
+                $summary = $summarizer->summarize($text, 100, 'english');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;

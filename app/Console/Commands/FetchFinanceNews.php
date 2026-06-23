@@ -37,7 +37,7 @@ class FetchFinanceNews extends Command
         $limit = (int) $this->option('limit');
 
         $existingLinks = News::pluck('link')->flip();
-        $existingTitles = News::pluck('title')->map(fn ($t) => $this->normalizeTitle($t))->flip();
+        $existingTitles = News::pluck('title')->map(fn($t) => $this->normalizeTitle($t))->flip();
         $feedUrls = $this->option('source') ? [$this->option('source')] : $this->feeds;
 
         // 1. Gather all unique new articles from RSS feeds
@@ -54,20 +54,20 @@ class FetchFinanceNews extends Command
 
                 continue;
             }
-            $this->info('  Found '.count($articles).' articles.');
+            $this->info('  Found ' . count($articles) . ' articles.');
             foreach ($articles as $art) {
                 if (count($pending) >= $limit) {
                     break 2;
                 }
                 $link = $art['link'] ?? null;
-                if (! $link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
+                if (!$link || isset($existingLinks[$link]) || isset($seenLinks[$link])) {
                     continue;
                 }
                 if (empty($art['title'])) {
                     continue;
                 }
                 $titleCheck = html_entity_decode(strip_tags($art['title']));
-                if (! $this->isFinanceRelated($titleCheck)) {
+                if (!$this->isFinanceRelated($titleCheck)) {
                     continue;
                 }
                 if (empty($art['image'])) {
@@ -89,7 +89,7 @@ class FetchFinanceNews extends Command
             return Command::SUCCESS;
         }
 
-        $this->info('New articles to process: '.count($pending));
+        $this->info('New articles to process: ' . count($pending));
 
         // 2. Fetch article pages for descriptions and author where needed
         $sourceFallbacks = ['Moneycontrol News', 'Economic Times', 'Livemint', 'Business Standard', 'NDTV Profit', 'Google News', 'Financial News'];
@@ -103,7 +103,7 @@ class FetchFinanceNews extends Command
             }
         }
 
-        if (! empty($needsFetch)) {
+        if (!empty($needsFetch)) {
             $this->line('Fetching article pages...');
             $this->fetchDescriptions($needsFetch, $pending);
         }
@@ -116,7 +116,7 @@ class FetchFinanceNews extends Command
         $bar->start();
 
         foreach ($pending as $art) {
-            $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
+            $desc = !empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: ($art['source'] ?? 'Financial News');
 
@@ -135,7 +135,7 @@ class FetchFinanceNews extends Command
                 $inserted++;
             } catch (QueryException $e) {
                 if ($e->getCode() === '23000') {
-                    $this->warn('  Skipped duplicate: '.mb_substr($art['title'], 0, 60));
+                    $this->warn('  Skipped duplicate: ' . mb_substr($art['title'], 0, 60));
                 } else {
                     throw $e;
                 }
@@ -156,17 +156,55 @@ class FetchFinanceNews extends Command
         $lower = strtolower($title);
 
         $exclude = [
-            'cricket', 'football', 'tennis', 'badminton', 't20', 'ipl', 'world cup',
-            'match', 'score', 'goal', 'hat-trick', 'hattrick', 'tournament',
-            'championship', 'semi-final', 'final', 'quarterfinal', 'league',
-            'gold medal', 'silver medal', 'bronze medal', 'olympics', 'olympic',
-            'quote of the day', 'proverb of the day', 'thought for the day',
-            'life lesson', 'daily wisdom', 'word of the day',
-            'movie', 'film review', 'actor', 'actress', 'singer', 'celebrity',
-            'fashion', 'beauty', 'recipe', 'cooking', 'food',
-            'horoscope', 'astrology', 'zodiac',
-            'obituary', 'died at', 'passed away',
-            'traffic', 'weather update', 'earthquake',
+            'cricket',
+            'football',
+            'tennis',
+            'badminton',
+            't20',
+            'ipl',
+            'world cup',
+            'match',
+            'score',
+            'goal',
+            'hat-trick',
+            'hattrick',
+            'tournament',
+            'championship',
+            'semi-final',
+            'final',
+            'quarterfinal',
+            'league',
+            'gold medal',
+            'silver medal',
+            'bronze medal',
+            'olympics',
+            'olympic',
+            'quote of the day',
+            'proverb of the day',
+            'thought for the day',
+            'life lesson',
+            'daily wisdom',
+            'word of the day',
+            'movie',
+            'film review',
+            'actor',
+            'actress',
+            'singer',
+            'celebrity',
+            'fashion',
+            'beauty',
+            'recipe',
+            'cooking',
+            'food',
+            'horoscope',
+            'astrology',
+            'zodiac',
+            'obituary',
+            'died at',
+            'passed away',
+            'traffic',
+            'weather update',
+            'earthquake',
         ];
         foreach ($exclude as $keyword) {
             if (str_contains($lower, $keyword)) {
@@ -175,36 +213,143 @@ class FetchFinanceNews extends Command
         }
 
         $financeKeywords = [
-            'stock', 'market', 'share', 'nifty', 'sensex', 'bse', 'nse',
-            'ipo', 'listing', 'public issue', 'offer for sale',
-            'profit', 'revenue', 'earnings', 'net income', 'net profit', 'loss',
-            'margin', 'quarter', 'q1', 'q2', 'q3', 'q4', 'fy', 'annual result',
-            'dividend', 'buyback', 'bonus', 'split', 'corporate action',
-            'rupee', 'dollar', 'forex', 'fdi', 'fii', 'dii', 'currency',
-            'bank', 'rbi', 'sebi', 'regulat', 'policy', 'rate cut', 'repo',
-            'monetary', 'inflation', 'gdp', 'economy', 'economic', 'fiscal',
-            'invest', 'fund', 'mutual fund', 'debt', 'equity', 'capital',
-            'merger', 'acquis', 'takeover', 'deal', 'partnership',
-            'trade', 'tariff', 'export', 'import',
-            'ceo', 'cfo', 'chairman', 'board', 'executive',
-            'budget', 'tax', 'gst',
-            'fundrai', 'startup', 'venture capital', 'funding',
-            ' crore ', ' lakh ', ' million ', ' billion ', 'trillion',
-            'price', 'rate', 'interest', 'loan', 'credit',
-            'energy', 'oil', 'gold', 'commodity', 'crude',
-            'steel', 'coal', 'metal', 'mining',
-            'automotive', 'auto', 'car', ' ev ', 'electric vehicle',
-            'pharma', 'healthcare', 'hospital',
-            'realty', 'real estate', 'property',
-            'technology', 'software', 'digital',
-            'it services', 'it sector', 'it firm', 'it company',
-            'telecom', 'telecommunication',
-            'defence', 'defense', 'aerospace',
-            'infrastructure', 'infra', 'power', 'renewable',
-            'insurance', 'fintech',
-            'dow jones', 'nasdaq', 's&p', 'wall street',
-            'bull run', 'bull market', 'bear market', 'rally',
-            'volatility', 'correction', 'crash', 'recovery',
+            'stock',
+            'market',
+            'share',
+            'nifty',
+            'sensex',
+            'bse',
+            'nse',
+            'ipo',
+            'listing',
+            'public issue',
+            'offer for sale',
+            'profit',
+            'revenue',
+            'earnings',
+            'net income',
+            'net profit',
+            'loss',
+            'margin',
+            'quarter',
+            'q1',
+            'q2',
+            'q3',
+            'q4',
+            'fy',
+            'annual result',
+            'dividend',
+            'buyback',
+            'bonus',
+            'split',
+            'corporate action',
+            'rupee',
+            'dollar',
+            'forex',
+            'fdi',
+            'fii',
+            'dii',
+            'currency',
+            'bank',
+            'rbi',
+            'sebi',
+            'regulat',
+            'policy',
+            'rate cut',
+            'repo',
+            'monetary',
+            'inflation',
+            'gdp',
+            'economy',
+            'economic',
+            'fiscal',
+            'invest',
+            'fund',
+            'mutual fund',
+            'debt',
+            'equity',
+            'capital',
+            'merger',
+            'acquis',
+            'takeover',
+            'deal',
+            'partnership',
+            'trade',
+            'tariff',
+            'export',
+            'import',
+            'ceo',
+            'cfo',
+            'chairman',
+            'board',
+            'executive',
+            'budget',
+            'tax',
+            'gst',
+            'fundrai',
+            'startup',
+            'venture capital',
+            'funding',
+            ' crore ',
+            ' lakh ',
+            ' million ',
+            ' billion ',
+            'trillion',
+            'price',
+            'rate',
+            'interest',
+            'loan',
+            'credit',
+            'energy',
+            'oil',
+            'gold',
+            'commodity',
+            'crude',
+            'steel',
+            'coal',
+            'metal',
+            'mining',
+            'automotive',
+            'auto',
+            'car',
+            ' ev ',
+            'electric vehicle',
+            'pharma',
+            'healthcare',
+            'hospital',
+            'realty',
+            'real estate',
+            'property',
+            'technology',
+            'software',
+            'digital',
+            'it services',
+            'it sector',
+            'it firm',
+            'it company',
+            'telecom',
+            'telecommunication',
+            'defence',
+            'defense',
+            'aerospace',
+            'infrastructure',
+            'infra',
+            'power',
+            'renewable',
+            'insurance',
+            'fintech',
+            'dow jones',
+            'nasdaq',
+            's&p',
+            'wall street',
+            'bull run',
+            'bull market',
+            'bear market',
+            'rally',
+            'volatility',
+            'correction',
+            'crash',
+            'recovery',
         ];
         foreach ($financeKeywords as $keyword) {
             if (str_contains($lower, $keyword)) {
@@ -217,7 +362,7 @@ class FetchFinanceNews extends Command
 
     private function cleanDescription(?string $raw, string $title = ''): ?string
     {
-        if (! $raw && ! $title) {
+        if (!$raw && !$title) {
             return null;
         }
 
@@ -234,21 +379,21 @@ class FetchFinanceNews extends Command
             $words = array_slice($words, 0, 120);
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-            $text = rtrim($text, ',;:').'.';
+            $text = rtrim($text, ',;:') . '.';
         } elseif ($wordCount < 80) {
             for ($i = 0; $i < 3; $i++) {
                 $needed = 120 - count(preg_split('/\s+/', trim($text ?? '')));
                 if ($needed <= 5) {
                     break;
                 }
-                $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
+                $text .= ' ' . $this->supplementSummary($text, $title, max($needed, 5));
             }
             $words = preg_split('/\s+/', trim($text ?? ''));
             if (count($words) > 130) {
                 $words = array_slice($words, 0, 120);
                 $text = implode(' ', $words);
                 $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-                $text = rtrim($text, ',;:').'.';
+                $text = rtrim($text, ',;:') . '.';
             }
         }
 
@@ -257,7 +402,7 @@ class FetchFinanceNews extends Command
 
     private function supplementSummary(string $existing, string $title, int $targetWords = 25): string
     {
-        $combined = strtolower($title.' '.$existing);
+        $combined = strtolower($title . ' ' . $existing);
 
         $templates = [];
 
@@ -306,7 +451,7 @@ class FetchFinanceNews extends Command
         foreach ($templates as $sent) {
             $wc = str_word_count($sent);
             if ($added + $wc <= $targetWords) {
-                $result .= ' '.$sent;
+                $result .= ' ' . $sent;
                 $added += $wc;
             } else {
                 break;
@@ -361,10 +506,26 @@ class FetchFinanceNews extends Command
                 // Extract body paragraphs — scan entire page <p> tags
                 preg_match_all('/<p[^>]*>(.+?)<\/p>/is', $html, $pTags);
                 $wordCount = 0;
-                $skipPhrases = ['skip to navigation', 'skip to main', 'skip to content', 'advertisement',
-                    'read more', 'related:', 'sign up', 'newsletter', 'terms of service',
-                    'privacy policy', 'all rights reserved', 'ai assistant', 'cookie', 'subscribe',
-                    'trending now', 'recommended', 'also read', 'follow us'];
+                $skipPhrases = [
+                    'skip to navigation',
+                    'skip to main',
+                    'skip to content',
+                    'advertisement',
+                    'read more',
+                    'related:',
+                    'sign up',
+                    'newsletter',
+                    'terms of service',
+                    'privacy policy',
+                    'all rights reserved',
+                    'ai assistant',
+                    'cookie',
+                    'subscribe',
+                    'trending now',
+                    'recommended',
+                    'also read',
+                    'follow us'
+                ];
                 foreach ($pTags[1] as $p) {
                     $clean = trim(strip_tags($p));
                     $clean = html_entity_decode($clean);
@@ -377,7 +538,7 @@ class FetchFinanceNews extends Command
                             break;
                         }
                     }
-                    if (strlen($clean) > 80 && ! $isNoise) {
+                    if (strlen($clean) > 80 && !$isNoise) {
                         $paragraphs[] = $clean;
                         $wordCount += str_word_count($clean);
                         if ($wordCount > 250) {
@@ -388,7 +549,7 @@ class FetchFinanceNews extends Command
 
                 // Find the original article index
                 $originalIndex = array_search($needsFetch[$index], array_column($pending, 'link'));
-                if ($originalIndex !== false && ! empty($paragraphs)) {
+                if ($originalIndex !== false && !empty($paragraphs)) {
                     $pending[$originalIndex]['description'] = implode(' ', $paragraphs);
                 }
 
@@ -398,16 +559,16 @@ class FetchFinanceNews extends Command
                     if (preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                         $author = trim($m[1]);
                     }
-                    if (! $author && preg_match('/<meta[^>]+property=["\']article:author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                    if (!$author && preg_match('/<meta[^>]+property=["\']article:author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                         $author = trim($m[1]);
                     }
-                    if (! $author && preg_match('/<span[^>]*class=["\'][^"\']*\bauthor\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
+                    if (!$author && preg_match('/<span[^>]*class=["\'][^"\']*\bauthor\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
                         $author = trim(strip_tags($m[1]));
                     }
-                    if (! $author && preg_match('/<a[^>]*rel=["\']author["\'][^>]*>(.+?)<\/a>/is', $html, $m)) {
+                    if (!$author && preg_match('/<a[^>]*rel=["\']author["\'][^>]*>(.+?)<\/a>/is', $html, $m)) {
                         $author = trim(strip_tags($m[1]));
                     }
-                    if (! $author && preg_match('/<span[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
+                    if (!$author && preg_match('/<span[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
                         $author = trim(strip_tags(preg_replace('/^By\s*/i', '', $m[1])));
                     }
                     if ($author) {
@@ -442,7 +603,7 @@ class FetchFinanceNews extends Command
 
             $response = $client->get($url);
             $xml = simplexml_load_string((string) $response->getBody());
-            if (! $xml) {
+            if (!$xml) {
                 return [];
             }
 
@@ -451,7 +612,7 @@ class FetchFinanceNews extends Command
 
             foreach ($items as $item) {
                 $link = trim((string) ($item->link ?? ''));
-                if (! $link) {
+                if (!$link) {
                     continue;
                 }
 
@@ -465,19 +626,19 @@ class FetchFinanceNews extends Command
                         $attrs = $media->content->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
-                    if (! $image && isset($media->thumbnail)) {
+                    if (!$image && isset($media->thumbnail)) {
                         $attrs = $media->thumbnail->attributes();
                         $image = (string) ($attrs['url'] ?? '');
                     }
                 }
-                if (! $image && isset($item->enclosure)) {
+                if (!$image && isset($item->enclosure)) {
                     $attrs = $item->enclosure->attributes();
                     if (str_starts_with((string) ($attrs['type'] ?? ''), 'image/')) {
                         $image = (string) ($attrs['url'] ?? '');
                     }
                 }
                 // Fallback: extract first <img> from description HTML
-                if (! $image) {
+                if (!$image) {
                     $descHtml = (string) ($item->description ?? '');
                     if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $descHtml, $m)) {
                         $image = $m[1];
@@ -490,7 +651,7 @@ class FetchFinanceNews extends Command
                     $dc = $item->children($namespaces['dc']);
                     $author = (string) ($dc->creator ?? '');
                 }
-                if (! $author) {
+                if (!$author) {
                     $author = (string) ($item->author ?? '');
                 }
 
@@ -575,7 +736,7 @@ class FetchFinanceNews extends Command
                     $art['title'] = $rewrittenTitle;
                 }
 
-                $summary = $summarizer->summarize($text, 150, 'english');
+                $summary = $summarizer->summarize($text, 100, 'english');
                 if ($summary) {
                     $art['description'] = $summary;
                     $art['ai_summarized'] = true;
