@@ -354,62 +354,9 @@ class FetchPoliticsNews extends Command
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
             $text = rtrim($text, ',;:').'.';
-        } elseif ($wordCount < 68) {
-            $needed = 70 - $wordCount;
-            $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
-            $words = preg_split('/\s+/', trim($text ?? ''));
-            if (count($words) > 75) {
-                $words = array_slice($words, 0, 70);
-                $text = implode(' ', $words);
-                $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-                $text = rtrim($text, ',;:').'.';
-            }
         }
 
         return trim($text ?? '') ?: null;
-    }
-
-    private function supplementSummary(string $existing, string $title, int $targetWords = 25): string
-    {
-        $combined = strtolower($title.' '.$existing);
-
-        $templates = [];
-
-        if (preg_match('/election|vote|poll|constituency|candidate|party|campaign|rally/i', $combined)) {
-            $templates[] = 'This political development comes at a crucial time, with significant implications for electoral dynamics and party strategies across the region.';
-            $templates[] = 'Political analysts are closely watching how this will shape voter sentiment and influence the larger political landscape.';
-        } elseif (preg_match('/bill|law|legislation|parliament|amendment|act|policy|scheme|ordinance/i', $combined)) {
-            $templates[] = 'The legislative move is expected to spark debate among political parties and civil society groups regarding its broader implications.';
-            $templates[] = 'Lawmakers and policy experts continue to examine the potential impact of this decision on governance and public welfare.';
-        } elseif (preg_match('/protest|strike|agitation|demonstration|opposition|movement|rally|sit-in/i', $combined)) {
-            $templates[] = 'The protest highlights growing public sentiment on the issue, with various political groups weighing in on the matter.';
-            $templates[] = 'Authorities are closely monitoring the situation as civil society organisations and political parties mobilise support for their respective positions.';
-        } elseif (preg_match('/appoint|resign|dismiss|cabinet reshuffle|portfolio|minister|secretary|commission/i', $combined)) {
-            $templates[] = 'This administrative change is seen as a strategic move that could alter the balance of power within the government apparatus.';
-            $templates[] = 'Observers are analysing how this reshuffle will impact policy implementation and governance efficiency in the coming months.';
-        } elseif (preg_match('/supreme court|high court|judgment|verdict|bench|justice|judicial|constitution|petition/i', $combined)) {
-            $templates[] = 'The judicial ruling has significant constitutional implications and is expected to influence future legal interpretations on the subject.';
-            $templates[] = 'Legal experts and political commentators are assessing the far-reaching consequences of this decision for Indian democracy.';
-        }
-
-        if (empty($templates)) {
-            $templates[] = 'This political development has generated significant discussion among analysts and commentators tracking the evolving political landscape.';
-            $templates[] = 'The developments are being closely followed by political observers who see this as a significant moment in contemporary politics.';
-        }
-
-        $result = '';
-        $added = 0;
-        foreach ($templates as $sent) {
-            $wc = str_word_count($sent);
-            if ($added + $wc <= $targetWords) {
-                $result .= ' '.$sent;
-                $added += $wc;
-            } else {
-                break;
-            }
-        }
-
-        return $result;
     }
 
     private function summarizeArticles(array &$pending): void

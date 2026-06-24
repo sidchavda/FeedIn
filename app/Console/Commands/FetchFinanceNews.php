@@ -380,85 +380,9 @@ class FetchFinanceNews extends Command
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
             $text = rtrim($text, ',;:') . '.';
-        } elseif ($wordCount < 80) {
-            for ($i = 0; $i < 3; $i++) {
-                $needed = 120 - count(preg_split('/\s+/', trim($text ?? '')));
-                if ($needed <= 5) {
-                    break;
-                }
-                $text .= ' ' . $this->supplementSummary($text, $title, max($needed, 5));
-            }
-            $words = preg_split('/\s+/', trim($text ?? ''));
-            if (count($words) > 130) {
-                $words = array_slice($words, 0, 120);
-                $text = implode(' ', $words);
-                $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-                $text = rtrim($text, ',;:') . '.';
-            }
         }
 
         return trim($text ?? '') ?: null;
-    }
-
-    private function supplementSummary(string $existing, string $title, int $targetWords = 25): string
-    {
-        $combined = strtolower($title . ' ' . $existing);
-
-        $templates = [];
-
-        if (preg_match('/q[234]|quarter|fy\d{2}|annual.*result/i', $combined)) {
-            $templates[] = 'This quarterly performance comes amid a challenging economic environment where companies are navigating changing market dynamics, shifting consumer demand, and evolving regulatory landscapes.';
-            $templates[] = 'The results reflect broader sector trends as businesses adapt their strategies to address competitive pressures while maintaining focus on operational efficiency and cost management.';
-            $templates[] = 'Industry analysts will be closely examining these numbers for insights into sector health and comparing them against broader economic indicators to assess the overall business climate.';
-        } elseif (preg_match('/dividend|buyback|corporate action|shareholder|bonus|split/i', $combined)) {
-            $templates[] = 'Such corporate actions are closely watched by investors as signals of company health, management confidence in future prospects, and commitment to delivering shareholder value over the long term.';
-            $templates[] = 'Companies with strong cash positions often use dividends and buybacks to reward shareholders, and these announcements can significantly influence market perception and stock valuation in the near term.';
-            $templates[] = 'Market participants generally view such announcements positively as they indicate financial strength and a management team that prioritizes shareholder returns alongside business growth objectives.';
-        } elseif (preg_match('/ipo|listing|public issue|offer for sale/i', $combined)) {
-            $templates[] = 'Investor interest in new listings remains strong as the primary market continues to see healthy activity across multiple sectors, driven by positive sentiment and ample liquidity in the market.';
-            $templates[] = 'Market analysts suggest that successful listings could pave the way for more companies to tap public markets, potentially leading to a robust pipeline of offerings in the coming months.';
-            $templates[] = 'The response to these offerings provides valuable signals about investor appetite for specific sectors and the overall health of the capital markets at the current juncture.';
-        } elseif (preg_match('/profit|revenue|earnings|net (income|profit)|loss|margin/i', $combined)) {
-            $templates[] = 'The financial performance highlights the company\'s competitive position in the current market landscape and its ability to navigate sector-specific headwinds, input cost pressures, and demand fluctuations.';
-            $templates[] = 'Industry watchers will be keenly observing how these numbers align with broader economic indicators and competitor performance, as they provide valuable benchmarks for sector evaluation.';
-            $templates[] = 'The results also offer insights into management\'s strategic execution, operational efficiency, and ability to sustain growth momentum in an increasingly competitive business environment.';
-        } elseif (preg_match('/rupee|dollar|forex|fii|dii|foreign|fdi|currency/i', $combined)) {
-            $templates[] = 'Flows from foreign and domestic institutional investors continue to influence market direction amid global economic uncertainties, interest rate decisions by central banks, and geopolitical developments.';
-            $templates[] = 'Currency movements and global capital flows remain important factors for emerging markets like India, impacting everything from trade competitiveness to inflation dynamics and investment patterns.';
-            $templates[] = 'Analysts are closely tracking these flows as they often serve as leading indicators for market direction and investor sentiment toward Indian assets in the global context.';
-        } elseif (preg_match('/sensex|nifty|benchmark|index|bse|nse|market.*rally|bull.*run/i', $combined)) {
-            $templates[] = 'Indian equity benchmarks have been navigating a period of volatility influenced by global cues, domestic economic data releases, corporate earnings trajectories, and shifts in monetary policy expectations.';
-            $templates[] = 'Market participants are adopting a stock-specific approach given the mixed signals from global markets and the varying performance across sectors in the domestic economy.';
-            $templates[] = 'Analysts recommend maintaining a diversified portfolio with a focus on quality stocks that have strong fundamentals and reasonable valuations in the current market environment.';
-        } elseif (preg_match('/regulat|rbi|sebi|policy|rate cut|repo|monetary/i', $combined)) {
-            $templates[] = 'Regulatory developments and policy decisions play a crucial role in shaping market dynamics, influencing everything from liquidity conditions to sector-specific growth prospects and compliance requirements.';
-            $templates[] = 'Market participants are closely analyzing the implications of these policy moves for different sectors and asset classes, adjusting their strategies accordingly.';
-            $templates[] = 'Such regulatory actions often have far-reaching consequences for financial markets and require businesses to adapt their operations and compliance frameworks to the new guidelines.';
-        } elseif (preg_match('/fundrai|invest|capital|equity|debt|acquis|merger/i', $combined)) {
-            $templates[] = 'Capital raising and investment activities provide important signals about corporate confidence and growth plans, with companies leveraging various instruments to fund their expansion strategies.';
-            $templates[] = 'These transactions are closely watched by market participants as they often reflect management\'s outlook on business prospects and the prevailing conditions in capital markets.';
-            $templates[] = 'The terms and structure of such deals also offer insights into how investors and lenders are evaluating risk and return across different sectors of the economy.';
-        }
-
-        if (empty($templates)) {
-            $templates[] = 'This development is part of ongoing changes in the financial and economic landscape that could influence market sentiment, investment strategies, and sectoral trends in the coming period.';
-            $templates[] = 'Market participants and industry experts are closely tracking such news for its potential implications on broader economic outlook and specific sectors.';
-            $templates[] = 'The evolving situation underscores the importance of staying informed about key developments that could shape market direction and create opportunities for informed investors.';
-        }
-
-        $result = '';
-        $added = 0;
-        foreach ($templates as $sent) {
-            $wc = str_word_count($sent);
-            if ($added + $wc <= $targetWords) {
-                $result .= ' ' . $sent;
-                $added += $wc;
-            } else {
-                break;
-            }
-        }
-
-        return $result;
     }
 
     private function fetchDescriptions(array $needsFetch, array &$pending): void

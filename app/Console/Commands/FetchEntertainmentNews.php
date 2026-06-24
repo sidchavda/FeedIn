@@ -361,68 +361,9 @@ class FetchEntertainmentNews extends Command
             $text = implode(' ', $words);
             $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
             $text = rtrim($text, ',;:').'.';
-        } elseif ($wordCount < 68) {
-            $needed = 70 - $wordCount;
-            $text .= ' '.$this->supplementSummary($text, $title, max($needed, 5));
-            $words = preg_split('/\s+/', trim($text ?? ''));
-            if (count($words) > 75) {
-                $words = array_slice($words, 0, 70);
-                $text = implode(' ', $words);
-                $text = preg_replace('/[^a-zA-Z0-9)]*$/', '', $text);
-                $text = rtrim($text, ',;:').'.';
-            }
         }
 
         return trim($text ?? '') ?: null;
-    }
-
-    private function supplementSummary(string $existing, string $title, int $targetWords = 25): string
-    {
-        $combined = strtolower($title.' '.$existing);
-        $templates = [];
-
-        if (preg_match('/box\s*office|collection|earn|crore|week[12]|opening/i', $combined)) {
-            $templates[] = 'The film\'s box office performance reflects audience reception and critical response in the current theatrical market.';
-            $templates[] = 'Industry experts are tracking these numbers as indicators of changing audience preferences and the growing market for regional cinema.';
-            $templates[] = 'The collection trends also offer insights into the film\'s longevity at the box office and its potential to cross significant milestones.';
-        } elseif (preg_match('/review|rating|critic|audience|response/i', $combined)) {
-            $templates[] = 'Reviews from critics and audiences alike provide valuable perspectives on the film\'s storytelling, performances, and overall cinematic appeal.';
-            $templates[] = 'The response to the film underscores changing viewer expectations and the evolving standards of storytelling in contemporary cinema.';
-        } elseif (preg_match('/trailer|teaser|poster|launch|release|announce|reveal/i', $combined)) {
-            $templates[] = 'The unveiling of new content has generated significant buzz among fans and industry watchers who are eagerly awaiting the full release.';
-            $templates[] = 'Such promotional activities play a crucial role in building anticipation and setting audience expectations ahead of the official premiere.';
-        } elseif (preg_match('/ott|stream|netflix|amazon|hotstar|disney|prime/i', $combined)) {
-            $templates[] = 'The digital streaming landscape continues to evolve rapidly, with OTT platforms competing for exclusive content and viewer attention across markets.';
-            $templates[] = 'Streaming releases have fundamentally changed how audiences consume entertainment, offering convenience and a vast library of choices.';
-        } elseif (preg_match('/music|song|album|single|concert|tour/i', $combined)) {
-            $templates[] = 'The music industry continues to evolve with new releases capturing audience attention across streaming platforms and live performances.';
-            $templates[] = 'Artists are connecting with fans through innovative formats and digital platforms that expand their reach beyond traditional boundaries.';
-        } elseif (preg_match('/award|honour|nominated|winner|recognition/i', $combined)) {
-            $templates[] = 'Awards and recognitions celebrate outstanding achievements in the entertainment industry, highlighting creative excellence and technical mastery.';
-            $templates[] = 'These honours reflect the industry\'s appreciation for distinctive storytelling, powerful performances, and innovative filmmaking techniques.';
-        } elseif (preg_match('/tv\s*show|series|episode|season|web\s*series/i', $combined)) {
-            $templates[] = 'Television and web series continue to captivate audiences with compelling narratives, strong character development, and high production values.';
-            $templates[] = 'The growing appetite for serialised content has led to increased investment in storytelling across both traditional and digital platforms.';
-        }
-
-        if (empty($templates)) {
-            $templates[] = 'This entertainment news has generated considerable interest among fans and industry observers who are closely following developments in the sector.';
-            $templates[] = 'The entertainment landscape continues to evolve with fresh content, emerging talent, and innovative storytelling formats engaging audiences worldwide.';
-        }
-
-        $result = '';
-        $added = 0;
-        foreach ($templates as $sent) {
-            $wc = str_word_count($sent);
-            if ($added + $wc <= $targetWords) {
-                $result .= ' '.$sent;
-                $added += $wc;
-            } else {
-                break;
-            }
-        }
-
-        return $result;
     }
 
     private function summarizeArticles(array &$pending): void
