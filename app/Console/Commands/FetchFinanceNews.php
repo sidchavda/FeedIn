@@ -110,7 +110,21 @@ class FetchFinanceNews extends Command
 
         $this->summarizeArticles($pending);
 
-        // 3. Insert into database
+        // 3. Filter out articles with still-too-short descriptions
+        $pending = array_values(array_filter($pending, function ($art) {
+            $desc = trim(strip_tags($art['description'] ?? ''));
+            return strlen($desc) >= 40;
+        }));
+
+        if (empty($pending)) {
+            $this->warn('No articles with sufficient description length to insert.');
+
+            return Command::SUCCESS;
+        }
+
+        $this->info('Articles after description filter: ' . count($pending));
+
+        // 4. Insert into database
         $inserted = 0;
         $bar = $this->output->createProgressBar(count($pending));
         $bar->start();
