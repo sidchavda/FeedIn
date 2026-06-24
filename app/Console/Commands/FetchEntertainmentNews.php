@@ -26,6 +26,7 @@ class FetchEntertainmentNews extends Command
         ['url' => 'https://timesofindia.indiatimes.com/rssfeeds/1081479906.cms', 'source' => 'Times of India'],
         ['url' => 'https://news.google.com/rss/search?q=site:missmalini.com&hl=en-IN&gl=IN&ceid=IN:en', 'source' => 'MissMalini'],
         ['url' => 'https://www.hollywoodreporterindia.com/stories.rss', 'source' => 'Hollywood Reporter India'],
+        ['url' => 'https://www.bollywoodhungama.com/rss/news.xml', 'source' => 'Bollywood Hungama'],
     ];
 
     public function handle(): int
