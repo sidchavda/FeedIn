@@ -26,7 +26,8 @@ class FetchGujaratiNews extends Command
         ['url' => 'https://divyabhaskar.co.in/rss-v1--category-970.xml', 'source' => 'Divya Bhaskar'],
         ['url' => 'https://divyabhaskar.co.in/rss-v1--category-12042.xml', 'source' => 'Divya Bhaskar'],
         ['url' => 'https://gujarati.news18.com/commonfeeds/v1/guj/rss/latest.xml', 'source' => 'News18 Gujarati'],
-        ['url' => 'https://www.gujaratsamachar.com/rss/top-stories', 'source' => 'Gujarat Samachar'],
+        // ['url' => 'https://www.gujaratsamachar.com/rss/top-stories', 'source' => 'Gujarat Samachar'],
+        ['url' => 'https://gujaratfastnews.com/rss/latest-posts', 'source' => 'Gujarat Fast News'],
     ];
 
     public function handle(): int
@@ -61,6 +62,10 @@ class FetchGujaratiNews extends Command
                     continue;
                 }
                 if (empty($art['title']) || empty($art['image'])) {
+                    continue;
+                }
+                $desc = trim(strip_tags($art['description'] ?? ''));
+                if (mb_strlen($desc) < 50) {
                     continue;
                 }
                 $key = $this->normalizeTitle($art['title']);
