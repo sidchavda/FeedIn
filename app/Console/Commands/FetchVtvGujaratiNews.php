@@ -266,9 +266,7 @@ class FetchVtvGujaratiNews extends Command
             '-H', 'Accept-Language: en-US,en;q=0.9,gu;q=0.8',
         ];
 
-        if ($this->option('no-verify')) {
-            $args[] = '--insecure';
-        }
+        $args[] = '--insecure';
 
         $args[] = $url;
 
