@@ -17,10 +17,11 @@ class FetchBbcGujaratiNews extends Command
         {--source= : Custom RSS feed URL (overrides default)}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch Gujarati news from BBC Gujarati';
+    protected $description = 'Fetch Gujarati news from BBC Gujarati & News18 Gujarati';
 
     private array $feeds = [
         ['url' => 'https://feeds.bbci.co.uk/gujarati/rss.xml', 'source' => 'BBC Gujarati'],
+        ['url' => 'https://gujarati.news18.com/commonfeeds/v1/guj/rss/latest.xml', 'source' => 'News18 Gujarati'],
     ];
 
     public function handle(): int
