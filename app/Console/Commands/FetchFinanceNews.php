@@ -22,12 +22,7 @@ class FetchFinanceNews extends Command
     protected $description = 'Fetch real-time finance news from free RSS feeds';
 
     private array $feeds = [
-        // 'https://www.moneycontrol.com/rss/business.xml',
-        // 'https://economictimes.indiatimes.com/rssfeeds/1715249553.cms',
-        'https://www.livemint.com/rss/money',
-        // 'https://www.business-standard.com/rss/finance-101.rss',
-        // 'https://www.ndtvprofit.com/rss/latest',
-        // 'https://news.google.com/rss/search?q=finance+india+stock+market&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://www.livemint.com/rss/money'
     ];
 
     public function handle(): int
