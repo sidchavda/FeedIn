@@ -149,17 +149,59 @@ class FetchAljazeeraNews extends Command
                 $description = trim(strip_tags((string) $item->description));
             }
 
+            $image = $this->extractRssImage($item);
+
             $articles[] = [
                 'title' => html_entity_decode($title, ENT_QUOTES, 'UTF-8'),
                 'link' => $link,
                 'description' => html_entity_decode($description, ENT_QUOTES, 'UTF-8'),
-                'image' => null,
+                'image' => $image,
                 'author' => '',
                 'source' => 'Al Jazeera',
             ];
         }
 
         return $articles;
+    }
+
+    private function extractRssImage(SimpleXMLElement $item): ?string
+    {
+        $namespaces = $item->getNamespaces(true);
+        $media = $namespaces['media'] ?? null;
+
+        if ($media) {
+            $item->registerXPathNamespace('media', $media);
+            $thumbnails = $item->xpath('media:thumbnail');
+            if (! empty($thumbnails)) {
+                $url = (string) $thumbnails[0]['url'];
+                if ($url) {
+                    return $url;
+                }
+            }
+            $contents = $item->xpath('media:content');
+            if (! empty($contents)) {
+                $url = (string) $contents[0]['url'];
+                if ($url) {
+                    return $url;
+                }
+            }
+        }
+
+        if ($item->enclosure && (string) $item->enclosure['type'] === 'image/jpeg') {
+            $url = (string) $item->enclosure['url'];
+            if ($url) {
+                return $url;
+            }
+        }
+
+        if ($item->description) {
+            $desc = (string) $item->description;
+            if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $desc, $m)) {
+                return $m[1];
+            }
+        }
+
+        return null;
     }
 
     private function fetchArticlePages(array &$pending): void
@@ -174,7 +216,7 @@ class FetchAljazeeraNews extends Command
                 continue;
             }
 
-            if (preg_match('/<meta\s+property="og:image"\s+content="([^"]+)"/i', $html, $m)) {
+            if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                 $article['image'] = $m[1];
             }
 
