@@ -9,7 +9,6 @@ use App\Services\TextSummarizer;
 use GuzzleHttp\Client;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
-use Symfony\Component\Process\Process;
 
 class FetchVtvGujaratiNews extends Command
 {
@@ -135,7 +134,7 @@ class FetchVtvGujaratiNews extends Command
 
     private function parseHomepage(string $url, string $source): array
     {
-        $html = $this->curlFetch($url);
+        $html = $this->guzzleFetch($url);
         if ($html === null) {
             $this->warn("  Error fetching homepage");
             return [];
@@ -209,7 +208,7 @@ class FetchVtvGujaratiNews extends Command
         $bar->start();
 
         foreach ($articles as $i => &$article) {
-            $html = $this->curlFetch($article['link']);
+            $html = $this->guzzleFetch($article['link']);
             if ($html === null) {
                 $bar->advance();
                 continue;
@@ -254,32 +253,22 @@ class FetchVtvGujaratiNews extends Command
         $this->newLine();
     }
 
-    private function curlFetch(string $url): ?string
+    private function guzzleFetch(string $url): ?string
     {
-        $curlBin = PHP_OS_FAMILY === 'Windows' ? 'C:\WINDOWS\system32\curl.exe' : '/usr/bin/curl';
-        $args = [
-            $curlBin,
-            '-s',
-            '-L',
-            '--max-time', '15',
-            '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            '-H', 'Accept-Language: en-US,en;q=0.9,gu;q=0.8',
-        ];
-
-        $args[] = '--insecure';
-
-        $args[] = $url;
-
         try {
-            $process = new Process($args, null, null, null, 20);
-            $process->run();
+            $client = new Client([
+                'timeout' => 15,
+                'verify' => ! $this->option('no-verify'),
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.9,gu;q=0.8',
+                ],
+            ]);
 
-            if (! $process->isSuccessful()) {
-                return null;
-            }
+            $response = $client->get($url);
+            $body = (string) $response->getBody();
 
-            $body = $process->getOutput();
             if (str_contains($body, 'Just a moment')) {
                 return null;
             }

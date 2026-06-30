@@ -6,10 +6,10 @@ use App\Models\Category;
 use App\Models\Language;
 use App\Models\News;
 use App\Services\TextSummarizer;
+use GuzzleHttp\Client;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
 use SimpleXMLElement;
-use Symfony\Component\Process\Process;
 
 class FetchAljazeeraNews extends Command
 {
@@ -121,7 +121,7 @@ class FetchAljazeeraNews extends Command
 
     private function parseRss(): array
     {
-        $xml = $this->curlFetch($this->rssUrl);
+        $xml = $this->guzzleFetch($this->rssUrl);
         if ($xml === null) {
             $this->warn('  Error fetching RSS feed');
             return [];
@@ -210,7 +210,7 @@ class FetchAljazeeraNews extends Command
         $bar->start();
 
         foreach ($pending as $i => &$article) {
-            $html = $this->curlFetch($article['link']);
+            $html = $this->guzzleFetch($article['link']);
             if ($html === null) {
                 $bar->advance();
                 continue;
@@ -263,31 +263,22 @@ class FetchAljazeeraNews extends Command
         $this->newLine();
     }
 
-    private function curlFetch(string $url): ?string
+    private function guzzleFetch(string $url): ?string
     {
-        $curlBin = PHP_OS_FAMILY === 'Windows' ? 'C:\WINDOWS\system32\curl.exe' : '/usr/bin/curl';
-        $args = [
-            $curlBin,
-            '-s',
-            '-L',
-            '--max-time', '15',
-            '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            '-H', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            '-H', 'Accept-Language: en-US,en;q=0.9',
-            '--insecure',
-        ];
-
-        $args[] = $url;
-
         try {
-            $process = new Process($args, null, null, null, 20);
-            $process->run();
+            $client = new Client([
+                'timeout' => 15,
+                'verify' => ! $this->option('no-verify'),
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.9',
+                ],
+            ]);
 
-            if (! $process->isSuccessful()) {
-                return null;
-            }
+            $response = $client->get($url);
+            $body = (string) $response->getBody();
 
-            $body = $process->getOutput();
             if (str_contains($body, 'Just a moment')) {
                 return null;
             }
