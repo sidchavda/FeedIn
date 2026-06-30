@@ -220,7 +220,7 @@ class FetchAljazeeraNews extends Command
                 $article['image'] = $m[1];
             }
 
-            if (preg_match('/<meta\s+name="author"\s+content="([^"]+)"/i', $html, $m)) {
+            if (preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                 $article['author'] = trim($m[1]);
             }
 
@@ -251,7 +251,7 @@ class FetchAljazeeraNews extends Command
 
             if (count($paragraphs) >= 3) {
                 $article['description'] = implode(' ', $paragraphs);
-            } elseif (preg_match('/<meta\s+property="og:description"\s+content="([^"]+)"/i', $html, $m)) {
+            } elseif (preg_match('/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                 $article['description'] = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
             }
 
