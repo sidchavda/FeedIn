@@ -256,8 +256,9 @@ class FetchVtvGujaratiNews extends Command
 
     private function curlFetch(string $url): ?string
     {
+        $curlBin = PHP_OS_FAMILY === 'Windows' ? 'C:\WINDOWS\system32\curl.exe' : '/usr/bin/curl';
         $args = [
-            'C:\WINDOWS\system32\curl.exe',
+            $curlBin,
             '-s',
             '-L',
             '--max-time', '15',
