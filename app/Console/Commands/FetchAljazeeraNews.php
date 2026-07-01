@@ -88,7 +88,7 @@ class FetchAljazeeraNews extends Command
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
             
             // Skip articles with short descriptions
-            if (mb_strlen($desc) < 60) {
+            if (mb_strlen($desc) < 50) {
                 $this->warn('  Skipped short description: ' . mb_substr($art['title'], 0, 60));
                 $bar->advance();
                 continue;
