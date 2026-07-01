@@ -86,6 +86,14 @@ class FetchAljazeeraNews extends Command
 
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
+            
+            // Skip articles with short descriptions
+            if (mb_strlen($desc) < 60) {
+                $this->warn('  Skipped short description: ' . mb_substr($art['title'], 0, 60));
+                $bar->advance();
+                continue;
+            }
+            
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: 'Al Jazeera';
 
