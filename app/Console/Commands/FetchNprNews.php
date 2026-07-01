@@ -9,16 +9,17 @@ use App\Services\TextSummarizer;
 use GuzzleHttp\Client;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
+use SimpleXMLElement;
 
-class FetchDwNews extends Command
+class FetchNprNews extends Command
 {
-    protected $signature = 'news:fetch-dw
+    protected $signature = 'news:fetch-npr
         {--limit=50 : Max articles to insert per run}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch news from DW (Deutsche Welle)';
+    protected $description = 'Fetch world news from NPR';
 
-    private string $url = 'https://www.dw.com/en/top-stories/s-9097';
+    private string $rssUrl = 'https://feeds.npr.org/1004/rss.xml';
 
     public function handle(): int
     {
@@ -35,15 +36,15 @@ class FetchDwNews extends Command
         $existingLinks = News::pluck('link')->flip();
         $existingTitles = News::pluck('title')->map(fn ($t) => $this->normalizeTitle($t))->flip();
 
-        $this->line("Fetching: DW Top Stories");
-        $articles = $this->parsePage();
+        $this->line("Fetching: NPR RSS");
+        $articles = $this->parseRss();
 
         if (empty($articles)) {
-            $this->warn('No articles found.');
+            $this->warn('No articles found in RSS feed.');
             return Command::SUCCESS;
         }
 
-        $this->info('Found ' . count($articles) . ' articles.');
+        $this->info('Found ' . count($articles) . ' articles in RSS feed.');
 
         $pending = [];
         $seenLinks = [];
@@ -85,16 +86,8 @@ class FetchDwNews extends Command
 
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '');
-            
-            // Skip articles with short descriptions
-            if (mb_strlen($desc) < 50) {
-                $this->warn('  Skipped short description: ' . mb_substr($art['title'], 0, 60));
-                $bar->advance();
-                continue;
-            }
-            
             $image = $art['image'] ?? null;
-            $author = $art['author'] ?: 'DW';
+            $author = $art['author'] ?: 'NPR';
 
             try {
                 News::create([
@@ -126,48 +119,71 @@ class FetchDwNews extends Command
         return Command::SUCCESS;
     }
 
-    private function parsePage(): array
+    private function parseRss(): array
     {
-        $html = $this->guzzleFetch($this->url);
-        if ($html === null) {
-            $this->warn('  Error fetching page');
+        $xml = $this->guzzleFetch($this->rssUrl);
+        if ($xml === null) {
+            $this->warn('  Error fetching RSS feed');
+            return [];
+        }
+
+        libxml_use_internal_errors(true);
+        $feed = simplexml_load_string($xml);
+        if ($feed === false) {
+            $this->warn('  Error parsing RSS XML');
             return [];
         }
 
         $articles = [];
-        
-        // Extract article links from the page
-        if (preg_match_all('/<a[^>]+href=["\']([^"\']+)["\'][^>]*class=["\'][^"\']*link[^"\']*["\'][^>]*>(.+?)<\/a>/is', $html, $matches)) {
-            foreach ($matches[1] as $i => $link) {
-                if (str_starts_with($link, '/')) {
-                    $link = 'https://www.dw.com' . $link;
-                }
-                
-                $titleHtml = $matches[2][$i] ?? '';
-                $title = trim(strip_tags($titleHtml));
-                $title = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
-                
-                if (empty($title) || strlen($title) < 10) {
-                    continue;
-                }
-                
-                // Skip video and show links
-                if (str_contains($link, '/video-') || str_contains($link, '/program-')) {
-                    continue;
-                }
+        foreach ($feed->channel->item as $item) {
+            $link = (string) $item->link;
 
-                $articles[] = [
-                    'title' => $title,
-                    'link' => $link,
-                    'description' => '',
-                    'image' => null,
-                    'author' => '',
-                    'source' => 'DW',
-                ];
+            $title = trim((string) $item->title);
+            if (empty($title)) {
+                continue;
             }
+
+            $description = '';
+            if ($item->description) {
+                $description = trim(strip_tags((string) $item->description));
+            }
+
+            $image = $this->extractRssImage($item);
+            $author = $this->extractAuthor($item);
+
+            $articles[] = [
+                'title' => html_entity_decode($title, ENT_QUOTES, 'UTF-8'),
+                'link' => $link,
+                'description' => html_entity_decode($description, ENT_QUOTES, 'UTF-8'),
+                'image' => $image,
+                'author' => $author,
+                'source' => 'NPR',
+            ];
         }
 
         return $articles;
+    }
+
+    private function extractRssImage(SimpleXMLElement $item): ?string
+    {
+        // Don't extract from RSS - URLs are too long and complex
+        // Will fetch from article page instead
+        return null;
+    }
+
+    private function extractAuthor(SimpleXMLElement $item): string
+    {
+        $namespaces = $item->getNamespaces(true);
+        
+        if (isset($namespaces['dc'])) {
+            $dc = $item->children($namespaces['dc']);
+            $creator = (string) $dc->creator;
+            if ($creator) {
+                return $creator;
+            }
+        }
+
+        return '';
     }
 
     private function fetchArticlePages(array &$pending): void
@@ -182,17 +198,23 @@ class FetchDwNews extends Command
                 continue;
             }
 
-            if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+            // Try to extract simpler image URL from article page
+            if (preg_match('/<img[^>]+class=["\'][^"\']*primary-image[^"\']*["\'][^>]+src=["\']([^"\']+)["\']/i', $html, $m)) {
                 $article['image'] = $m[1];
+            } elseif (preg_match('/<img[^>]+class=["\'][^"\']*lead-image[^"\']*["\'][^>]+src=["\']([^"\']+)["\']/i', $html, $m)) {
+                $article['image'] = $m[1];
+            } elseif (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                // Extract the base URL from NPR's complex CDN URLs
+                $url = $m[1];
+                if (preg_match('/url=([^&]+)/', $url, $urlMatch)) {
+                    $article['image'] = urldecode($urlMatch[1]);
+                } else {
+                    $article['image'] = $url;
+                }
             }
 
-            if (preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+            if (empty($article['author']) && preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                 $article['author'] = trim($m[1]);
-            }
-
-            // Extract description from meta
-            if (preg_match('/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
-                $article['description'] = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
             }
 
             // Extract body paragraphs
@@ -212,6 +234,8 @@ class FetchDwNews extends Command
 
             if (count($paragraphs) >= 3) {
                 $article['description'] = implode(' ', $paragraphs);
+            } elseif (preg_match('/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                $article['description'] = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
             }
 
             $bar->advance();
@@ -253,25 +277,32 @@ class FetchDwNews extends Command
         $text = html_entity_decode(strip_tags($raw ?? ''), ENT_QUOTES, 'UTF-8');
         $text = trim(preg_replace('/\s+/', ' ', $text));
         
-        // Format into 4 lines
+        // Format into 3-4 lines
         $words = preg_split('/\s+/', $text);
-        $wordsPerLine = ceil(count($words) / 4);
-        $lines = [];
+        $wordCount = count($words);
+        
+        if ($wordCount < 10) {
+            return $text ?: null;
+        }
+        
+        $lines = 4;
+        $wordsPerLine = ceil($wordCount / $lines);
+        $formattedLines = [];
         $currentLine = [];
         
         foreach ($words as $word) {
             $currentLine[] = $word;
             if (count($currentLine) >= $wordsPerLine) {
-                $lines[] = implode(' ', $currentLine);
+                $formattedLines[] = implode(' ', $currentLine);
                 $currentLine = [];
             }
         }
         
         if (! empty($currentLine)) {
-            $lines[] = implode(' ', $currentLine);
+            $formattedLines[] = implode(' ', $currentLine);
         }
         
-        $text = implode("\n", array_slice($lines, 0, 4));
+        $text = implode("\n", array_slice($formattedLines, 0, $lines));
         
         return $text ?: null;
     }
