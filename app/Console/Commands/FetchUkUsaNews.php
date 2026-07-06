@@ -309,10 +309,8 @@ class FetchUkUsaNews extends Command
                     $pending[$originalIndex]['description'] = implode(' ', $paragraphs);
                 }
 
-                if (empty($pending[$originalIndex]['image'])) {
-                    if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
-                        $pending[$originalIndex]['image'] = $m[1];
-                    }
+                if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+                    $pending[$originalIndex]['image'] = $m[1];
                 }
 
                 if (empty($pending[$originalIndex]['author'])) {
