@@ -15,42 +15,60 @@ class DeviceTokenController extends Controller
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'device_token' => 'required|string|unique:device_tokens',
+            'device_token' => 'required|string',
             'device_type' => 'nullable|string|in:ios,android,web',
             'device_name' => 'nullable|string',
+            'language_id' => 'nullable|integer|exists:languages,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $user = $request->user();
 
-        // Allow guest registration (user_id can be null)
-        $deviceToken = DeviceToken::create([
-            'user_id' => $user?->id, // null if guest
-            'device_token' => $request->device_token,
-            'device_type' => $request->device_type,
-            'device_name' => $request->device_name,
-            'last_used_at' => now(),
-        ]);
+        $deviceToken = DeviceToken::where('device_token', $request->device_token)->first();
+
+        if ($deviceToken) {
+            $deviceToken->update([
+                'user_id' => $user?->id,
+                'language_id' => $request->language_id,
+                'device_type' => $request->device_type,
+                'device_name' => $request->device_name,
+                'last_used_at' => now(),
+            ]);
+            $isNew = false;
+        } else {
+            $deviceToken = DeviceToken::create([
+                'user_id' => $user?->id,
+                'language_id' => $request->language_id,
+                'device_token' => $request->device_token,
+                'device_type' => $request->device_type,
+                'device_name' => $request->device_name,
+                'last_used_at' => now(),
+            ]);
+            $isNew = true;
+        }
 
         return response()->json([
             'success' => true,
-            'message' => $user ? 'Device token registered successfully' : 'Device token registered as guest',
+            'message' => $isNew
+                ? ($user ? 'Device token registered successfully' : 'Device token registered as guest')
+                : 'Device token updated successfully',
             'data' => [
                 'id' => $deviceToken->id,
                 'device_token' => $deviceToken->device_token,
                 'device_type' => $deviceToken->device_type,
                 'device_name' => $deviceToken->device_name,
                 'user_id' => $deviceToken->user_id,
+                'language_id' => $deviceToken->language_id,
                 'is_guest' => $user ? false : true,
                 'created_at' => $deviceToken->created_at,
-            ]
+            ],
         ]);
     }
 
@@ -63,10 +81,10 @@ class DeviceTokenController extends Controller
             ->where('id', $id)
             ->first();
 
-        if (!$deviceToken) {
+        if (! $deviceToken) {
             return response()->json([
                 'success' => false,
-                'message' => 'Device token not found'
+                'message' => 'Device token not found',
             ], 404);
         }
 
@@ -75,7 +93,7 @@ class DeviceTokenController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Device token updated successfully'
+            'message' => 'Device token updated successfully',
         ]);
     }
 
@@ -88,10 +106,10 @@ class DeviceTokenController extends Controller
             ->where('id', $id)
             ->first();
 
-        if (!$deviceToken) {
+        if (! $deviceToken) {
             return response()->json([
                 'success' => false,
-                'message' => 'Device token not found'
+                'message' => 'Device token not found',
             ], 404);
         }
 
@@ -99,7 +117,7 @@ class DeviceTokenController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Device token deleted successfully'
+            'message' => 'Device token deleted successfully',
         ]);
     }
 
@@ -114,7 +132,7 @@ class DeviceTokenController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $deviceTokens
+            'data' => $deviceTokens,
         ]);
     }
 }

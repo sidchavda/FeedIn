@@ -12,6 +12,7 @@ class DeviceToken extends Model
 
     protected $fillable = [
         'user_id',
+        'language_id',
         'device_token',
         'device_type',
         'device_name',
@@ -25,5 +26,10 @@ class DeviceToken extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function language(): BelongsTo
+    {
+        return $this->belongsTo(Language::class);
     }
 }

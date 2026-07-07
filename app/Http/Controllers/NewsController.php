@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\News;
 use App\Models\Category;
-use App\Models\Language;
 use App\Models\Country;
-use App\Models\State;
 use App\Models\DeviceToken;
+use App\Models\Language;
+use App\Models\News;
+use App\Models\State;
 use App\Services\FCMService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -24,31 +24,31 @@ class NewsController extends Controller
     public function index(Request $request)
     {
         $query = News::with(['country', 'state', 'language', 'category'])->latest();
-        
-        if ($request->has('search') && !empty($request->search)) {
+
+        if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('lcategory', 'like', "%{$search}%")
-                  ->orWhere('author', 'like', "%{$search}%")
-                  ->orWhereHas('country', function($cq) use ($search) {
-                      $cq->where('name', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('state', function($sq) use ($search) {
-                      $sq->where('name', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('language', function($lq) use ($search) {
-                      $lq->where('name', 'like', "%{$search}%");
-                  });
+                    ->orWhere('lcategory', 'like', "%{$search}%")
+                    ->orWhere('author', 'like', "%{$search}%")
+                    ->orWhereHas('country', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('state', function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('language', function ($lq) use ($search) {
+                        $lq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
-        
+
         $news = $query->paginate(10);
-        
+
         if ($request->has('search')) {
             $news->appends(['search' => $request->search]);
         }
-        
+
         return view('pages.news.index', compact('news'));
     }
 
@@ -58,7 +58,7 @@ class NewsController extends Controller
         $languages = Language::where('is_active', 1)->get();
         $countries = Country::where('is_active', 1)->orderBy('name')->get();
         $states = collect();
-        
+
         // If editing, load states for the selected country
         if (request()->has('id')) {
             $news = News::find(request('id'));
@@ -66,7 +66,7 @@ class NewsController extends Controller
                 $states = State::where('country_id', $news->country_id)->where('is_active', 1)->orderBy('name')->get();
             }
         }
-        
+
         return view('pages.news.add', compact('categories', 'languages', 'countries', 'states'));
     }
 
@@ -80,17 +80,17 @@ class NewsController extends Controller
         ]);
 
         $data = $request->except('_token');
-        
+
         // Handle status field (checkbox returns nothing when unchecked)
         $data['status'] = $request->has('status') ? 1 : 0;
-        
+
         // Handle push_notification field (checkbox returns nothing when unchecked)
         $data['push_notification'] = $request->has('push_notification') ? 1 : 0;
 
         if ($request->hasFile('image')) {
-            $imageName = time() . '.' . $request->image->extension();
+            $imageName = time().'.'.$request->image->extension();
             $request->image->move(public_path('images/news'), $imageName);
-            $data['image'] = 'images/news/' . $imageName;
+            $data['image'] = 'images/news/'.$imageName;
         }
 
         $news = News::create($data);
@@ -110,11 +110,11 @@ class NewsController extends Controller
         $languages = Language::where('is_active', 1)->get();
         $countries = Country::where('is_active', 1)->orderBy('name')->get();
         $states = collect();
-        
+
         if ($news->country_id) {
             $states = State::where('country_id', $news->country_id)->where('is_active', 1)->orderBy('name')->get();
         }
-        
+
         return view('pages.news.add', compact('news', 'categories', 'languages', 'countries', 'states'));
     }
 
@@ -129,17 +129,17 @@ class NewsController extends Controller
 
         $news = News::findOrFail($id);
         $data = $request->except(['_token', '_method']);
-        
+
         // Handle status field (checkbox returns nothing when unchecked)
         $data['status'] = $request->has('status') ? 1 : 0;
-        
+
         // Handle push_notification field (checkbox returns nothing when unchecked)
         $data['push_notification'] = $request->has('push_notification') ? 1 : 0;
 
         if ($request->hasFile('image')) {
-            $imageName = time() . '.' . $request->image->extension();
+            $imageName = time().'.'.$request->image->extension();
             $request->image->move(public_path('images/news'), $imageName);
-            $data['image'] = 'images/news/' . $imageName;
+            $data['image'] = 'images/news/'.$imageName;
         }
 
         $news->update($data);
@@ -158,18 +158,27 @@ class NewsController extends Controller
     private function sendPushNotification($news)
     {
         try {
-            // Get all device tokens (including guest tokens where user_id is null)
-            $deviceTokens = DeviceToken::pluck('device_token')->toArray();
+            $query = DeviceToken::query();
+
+            if ($news->language_id) {
+                $query->where(function ($q) use ($news) {
+                    $q->where('language_id', $news->language_id)
+                        ->orWhereNull('language_id');
+                });
+            }
+
+            $deviceTokens = $query->pluck('device_token')->toArray();
 
             if (empty($deviceTokens)) {
                 Log::info('No device tokens found for push notification');
+
                 return;
             }
 
             // Prepare notification data (all values must be strings for Firebase)
             $title = $news->title;
             // $body = substr(strip_tags($news->description), 0, 100) . '...';
-            $body = "Check out this latest news!";
+            $body = 'Check out this latest news!';
             $data = [
                 'news_id' => (string) $news->id,
                 'slug' => (string) $news->slug,
@@ -187,12 +196,12 @@ class NewsController extends Controller
                 //     'total_devices' => count($deviceTokens),
                 // ]);
             } else {
-                Log::error('Failed to send push notification for news ID: ' . $news->id, [
+                Log::error('Failed to send push notification for news ID: '.$news->id, [
                     'error' => $result['error'] ?? 'Unknown error',
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Error sending push notification: ' . $e->getMessage());
+            Log::error('Error sending push notification: '.$e->getMessage());
         }
     }
 
@@ -200,6 +209,7 @@ class NewsController extends Controller
     {
         $news = News::findOrFail($id);
         $news->delete();
+
         return redirect()->back()->with('success', 'News deleted successfully.');
     }
 }
