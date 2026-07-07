@@ -52,6 +52,7 @@ class FetchUkUsaNews extends Command
             $articles = $this->parseFeed($feedUrl, $source);
             if (empty($articles)) {
                 $this->warn('  No articles from this source.');
+
                 continue;
             }
             $this->info('  Found '.count($articles).' articles.');
@@ -85,6 +86,7 @@ class FetchUkUsaNews extends Command
 
         if (empty($pending)) {
             $this->warn('No new articles to insert.');
+
             return Command::SUCCESS;
         }
 
@@ -233,6 +235,7 @@ class FetchUkUsaNews extends Command
             return $articles;
         } catch (\Exception $e) {
             $this->warn("  Error: {$e->getMessage()}");
+
             return [];
         }
     }
@@ -318,17 +321,44 @@ class FetchUkUsaNews extends Command
                     if (preg_match('/<meta[^>]+name=["\']author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                         $author = trim($m[1]);
                     }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
+                    }
                     if (! $author && preg_match('/<meta[^>]+property=["\']article:author["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
                         $author = trim($m[1]);
+                    }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
                     }
                     if (! $author && preg_match('/<span[^>]*class=["\'][^"\']*\bauthor\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
                         $author = trim(strip_tags($m[1]));
                     }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
+                    }
                     if (! $author && preg_match('/<a[^>]*rel=["\']author["\'][^>]*>(.+?)<\/a>/is', $html, $m)) {
                         $author = trim(strip_tags($m[1]));
                     }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
+                    }
                     if (! $author && preg_match('/<span[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/span>/is', $html, $m)) {
                         $author = trim(strip_tags(preg_replace('/^By\s*/i', '', $m[1])));
+                    }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
+                    }
+                    if (! $author && preg_match('/<div[^>]*data-component=["\']byline-block["\'][^>]*>(.+?)<\/div>/is', $html, $m)) {
+                        $author = trim(strip_tags($m[1]));
+                    }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
+                    }
+                    if (! $author && preg_match('/<address[^>]*class=["\'][^"\']*\bbyline\b[^"\']*["\'][^>]*>(.+?)<\/address>/is', $html, $m)) {
+                        $author = trim(strip_tags(preg_replace('/^By\s*/i', '', $m[1])));
+                    }
+                    if ($this->looksLikeUrl($author)) {
+                        $author = '';
                     }
                     if ($author) {
                         $pending[$originalIndex]['author'] = $author;
@@ -425,7 +455,17 @@ class FetchUkUsaNews extends Command
                 return true;
             }
         }
+
         return false;
+    }
+
+    private function looksLikeUrl(string $value): bool
+    {
+        if (empty($value)) {
+            return false;
+        }
+
+        return (bool) preg_match('/^(https?:\/\/|www\.)/i', trim($value));
     }
 
     private function normalizeTitle(string $title): string
