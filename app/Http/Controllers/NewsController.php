@@ -211,4 +211,16 @@ class NewsController extends Controller
 
         return redirect()->back()->with('success', 'News deleted successfully.');
     }
+
+    public function deleteMultiple(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:news,id',
+        ]);
+
+        News::whereIn('id', $request->ids)->delete();
+
+        return redirect()->back()->with('success', 'Selected news deleted successfully.');
+    }
 }

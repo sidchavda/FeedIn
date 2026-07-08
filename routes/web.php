@@ -86,6 +86,7 @@ Route::group(['middleware' => ['auth']], function () {
         Route::get('/edit/{id}', [NewsController::class, 'edit'])->name('edit');
         Route::post('/update/{id}', [NewsController::class, 'update'])->name('update');
         Route::get('/delete/{id}', [NewsController::class, 'delete'])->name('delete');
+        Route::post('/delete-multiple', [NewsController::class, 'deleteMultiple'])->name('deleteMultiple');
     });
 
     // Categories by language API endpoint
