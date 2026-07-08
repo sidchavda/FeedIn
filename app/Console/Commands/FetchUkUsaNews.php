@@ -110,6 +110,14 @@ class FetchUkUsaNews extends Command
 
         $this->summarizeArticles($pending);
 
+        $pending = array_values(array_filter($pending, fn ($art) => ! $this->isTeaserOnly($art['description'] ?? '')));
+
+        if (empty($pending)) {
+            $this->warn('No substantive articles to insert after filtering teasers.');
+
+            return Command::SUCCESS;
+        }
+
         $inserted = 0;
         $bar = $this->output->createProgressBar(count($pending));
         $bar->start();
@@ -453,6 +461,35 @@ class FetchUkUsaNews extends Command
         foreach ($socialDomains as $domain) {
             if (str_ends_with($host, $domain)) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isTeaserOnly(string $description): bool
+    {
+        $stripped = trim(strip_tags(html_entity_decode($description)));
+        $stripped = trim(preg_replace('/\s+/', ' ', $stripped));
+
+        if (strlen($stripped) < 15) {
+            return true;
+        }
+
+        $teaserPatterns = [
+            'continue reading',
+            'continue reading...',
+            'read more',
+            'read full story',
+            'read full article',
+            'click here to read',
+            'view more',
+            'full coverage',
+        ];
+
+        foreach ($teaserPatterns as $pattern) {
+            if (str_contains(mb_strtolower($stripped), $pattern)) {
+                return strlen($stripped) < 80;
             }
         }
 

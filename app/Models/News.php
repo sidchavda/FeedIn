@@ -17,7 +17,6 @@ class News extends Model
         'link',
         'language_id',
         'category_id',
-        'lcategory',
         'description',
         'image',
         'author',
@@ -49,7 +48,7 @@ class News extends Model
         $count = 1;
 
         while (static::where('slug', $slug)->where('id', '!=', $this->id ?? 0)->exists()) {
-            $slug = $originalSlug . '-' . $count;
+            $slug = $originalSlug.'-'.$count;
             $count++;
         }
 

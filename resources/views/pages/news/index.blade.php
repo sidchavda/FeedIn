@@ -63,7 +63,7 @@
                                         <tr>
                                             <td>{{ $item->title }}</td>
                                             <td><a href="{{ $item->link }}" target="_blank">{{ $item->link }}</a></td>
-                                            <td>{{ $item->category ? $item->category->name : $item->lcategory }}</td>
+                                            <td>{{ $item->category?->name ?? '-' }}</td>
                                             <td>{{ $item->language ? $item->language->name : '-' }}</td>
                                             <td>{{ $item->country ? $item->country->name : '-' }}</td>
                                             <td>{{ $item->state ? $item->state->name : '-' }}</td>

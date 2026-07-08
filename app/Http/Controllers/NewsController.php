@@ -29,7 +29,6 @@ class NewsController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('lcategory', 'like', "%{$search}%")
                     ->orWhere('author', 'like', "%{$search}%")
                     ->orWhereHas('country', function ($cq) use ($search) {
                         $cq->where('name', 'like', "%{$search}%");
