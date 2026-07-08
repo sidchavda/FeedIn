@@ -234,7 +234,7 @@ class FetchUkUsaNews extends Command
                     'title' => (string) ($item->title ?? ''),
                     'link' => $link,
                     'description' => $desc,
-                    'image' => $image,
+                    'image' => $this->enhanceImageUrl($image),
                     'author' => $author,
                     'source' => $source,
                 ];
@@ -321,7 +321,7 @@ class FetchUkUsaNews extends Command
                 }
 
                 if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
-                    $pending[$originalIndex]['image'] = $m[1];
+                    $pending[$originalIndex]['image'] = $this->enhanceImageUrl($m[1]);
                 }
 
                 if (empty($pending[$originalIndex]['author'])) {
@@ -517,6 +517,25 @@ class FetchUkUsaNews extends Command
         }
 
         return false;
+    }
+
+    private function enhanceImageUrl(?string $url): ?string
+    {
+        if (empty($url)) {
+            return $url;
+        }
+
+        // BBC iChef thumbnail → HD
+        if (preg_match('#^(https?://ichef\.bbci\.co\.uk/.+/)cpsprodpb/#i', $url, $m)) {
+            $base = $m[1];
+            $filename = preg_replace('#^.*cpsprodpb/#', '', $url);
+            $url = $base.'cpsprodpb/'.$filename;
+            // Replace size in path like /news/240/ or /ace/standard/240/
+            $url = preg_replace('#/(news|ace/standard)/\d+x\d+/#i', '/$1/1024x576/', $url);
+            $url = preg_replace('#/(news|ace/standard)/\d+/#i', '/$1/1024/', $url);
+        }
+
+        return $url;
     }
 
     private function looksLikeUrl(string $value): bool
