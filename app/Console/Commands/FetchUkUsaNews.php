@@ -108,9 +108,9 @@ class FetchUkUsaNews extends Command
             $this->fetchPages($needsFetch, $pending);
         }
 
-        $this->summarizeArticles($pending);
-
         $pending = array_values(array_filter($pending, fn ($art) => ! $this->isTeaserOnly($art['description'] ?? '')));
+
+        $this->summarizeArticles($pending);
 
         if (empty($pending)) {
             $this->warn('No substantive articles to insert after filtering teasers.');
@@ -417,7 +417,7 @@ class FetchUkUsaNews extends Command
             $text = trim(strip_tags($art['description'] ?? ''));
             if (mb_strlen($text) > 40) {
                 $rewrittenTitle = $summarizer->summarize($text, 10, 'english');
-                if ($rewrittenTitle) {
+                if ($rewrittenTitle && ! $this->isTeaserTitle($rewrittenTitle)) {
                     $art['title'] = $rewrittenTitle;
                 }
 
@@ -460,6 +460,29 @@ class FetchUkUsaNews extends Command
         $host = strtolower($host);
         foreach ($socialDomains as $domain) {
             if (str_ends_with($host, $domain)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isTeaserTitle(string $title): bool
+    {
+        $lower = mb_strtolower(trim($title));
+        $teaserPhrases = [
+            'continue reading',
+            'read more',
+            'read full story',
+            'read full article',
+            'click here to read',
+            'view more',
+            'full coverage',
+            'continue',
+        ];
+
+        foreach ($teaserPhrases as $phrase) {
+            if (str_contains($lower, $phrase)) {
                 return true;
             }
         }
