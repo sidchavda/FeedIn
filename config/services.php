@@ -31,7 +31,8 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
     'firebase' => [
-        'credentials' => 'storage/app/firebase-service-account.json',
+        // 'credentials' => 'storage/app/firebase-service-account.json',
+        'credentials' => 'config/firebase-service-account.json',
     ],
 
     'gemini' => [
