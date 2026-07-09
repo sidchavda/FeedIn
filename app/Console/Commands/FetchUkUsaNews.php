@@ -124,6 +124,13 @@ class FetchUkUsaNews extends Command
 
         foreach ($pending as $art) {
             $desc = ! empty($art['ai_summarized']) ? $art['description'] : $this->cleanDescription($art['description'] ?? '', $art['title']);
+
+            if ($this->isTeaserOnly($desc) || $this->isTeaserTitle($desc)) {
+                $bar->advance();
+
+                continue;
+            }
+
             $image = $art['image'] ?? null;
             $author = $art['author'] ?: ($art['source'] ?? 'UK/USA News');
 
