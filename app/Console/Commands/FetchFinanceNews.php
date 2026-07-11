@@ -316,7 +316,7 @@ class FetchFinanceNews extends Command
                     'title' => (string) ($item->title ?? ''),
                     'link' => $link,
                     'description' => $desc,
-                    'image' => $this->enhanceImageUrl($image),
+                    'image' => $this->fixImageUrl($image, $url),
                     'author' => $author,
                     'source' => $source,
                 ];
@@ -403,7 +403,10 @@ class FetchFinanceNews extends Command
                 }
 
                 if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
-                    $pending[$originalIndex]['image'] = $this->enhanceImageUrl($m[1]);
+                    $ogImage = $this->fixImageUrl($m[1], $needsFetch[$index]);
+                    if ($ogImage) {
+                        $pending[$originalIndex]['image'] = $ogImage;
+                    }
                 }
 
                 if (empty($pending[$originalIndex]['author'])) {
@@ -487,12 +490,39 @@ class FetchFinanceNews extends Command
         return trim($text ?? '') ?: null;
     }
 
-    private function enhanceImageUrl(?string $url): ?string
+    private function fixImageUrl(?string $url, ?string $feedUrl = null): ?string
     {
         if (empty($url)) {
-            return $url;
+            return null;
         }
 
+        $url = trim($url);
+
+        // Fix protocol-relative URLs (//example.com/path)
+        if (str_starts_with($url, '//')) {
+            $url = 'https:'.$url;
+        }
+
+        // Resolve relative URLs using feed URL's base domain
+        if (! preg_match('#^https?://#i', $url) && $feedUrl) {
+            $parsed = parse_url($feedUrl);
+            if (isset($parsed['scheme'], $parsed['host'])) {
+                $base = $parsed['scheme'].'://'.$parsed['host'];
+                $url = $base.($url[0] === '/' ? '' : '/').$url;
+            }
+        }
+
+        // Skip if still not a valid absolute URL
+        if (! preg_match('#^https?://#i', $url)) {
+            return null;
+        }
+
+        // Skip social media URLs that aren't real images
+        if (preg_match('#(facebook\.com|twitter\.com|x\.com|instagram\.com)/#i', $url)) {
+            return null;
+        }
+
+        // BBC iChef thumbnail → HD
         if (preg_match('#^(https?://ichef\.bbci\.co\.uk/.+/)cpsprodpb/#i', $url, $m)) {
             $base = $m[1];
             $filename = preg_replace('#^.*cpsprodpb/#', '', $url);
