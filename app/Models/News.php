@@ -44,6 +44,8 @@ class News extends Model
             foreach (['title', 'description', 'author'] as $field) {
                 if (isset($news->$field) && is_string($news->$field)) {
                     $news->$field = html_entity_decode($news->$field, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $news->$field = preg_replace('/\[\.\.\.\]|\[\s*…\s*\]/', '', $news->$field);
+                    $news->$field = trim(preg_replace('/\s+/', ' ', $news->$field));
                 }
             }
         });
