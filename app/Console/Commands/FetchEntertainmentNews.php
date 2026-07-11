@@ -19,7 +19,7 @@ class FetchEntertainmentNews extends Command
         {--source= : Custom RSS feed URL}
         {--no-verify : Bypass SSL verification}';
 
-    protected $description = 'Fetch entertainment news from Variety, Hollywood Reporter, Deadline, Billboard, Rolling Stone';
+    protected $description = 'Fetch entertainment news from Variety, Hollywood Reporter, Deadline, Billboard, Rolling Stone, TOI, Bollywood Hungama, HT';
 
     private array $feeds = [
         ['url' => 'https://variety.com/feed/', 'source' => 'Variety'],
@@ -27,6 +27,9 @@ class FetchEntertainmentNews extends Command
         ['url' => 'https://deadline.com/feed/', 'source' => 'Deadline'],
         ['url' => 'https://www.billboard.com/feed/', 'source' => 'Billboard'],
         ['url' => 'https://www.rollingstone.com/feed/', 'source' => 'Rolling Stone'],
+        ['url' => 'https://timesofindia.indiatimes.com/rssfeeds/1081479906.cms', 'source' => 'Times of India'],
+        ['url' => 'https://www.bollywoodhungama.com/feed/', 'source' => 'Bollywood Hungama'],
+        ['url' => 'https://www.hindustantimes.com/feeds/rss/entertainment/rssfeed.xml', 'source' => 'Hindustan Times'],
     ];
 
     public function handle(): int
@@ -93,7 +96,7 @@ class FetchEntertainmentNews extends Command
 
         $this->info('New articles to process: '.count($pending));
 
-        $sourceFallbacks = ['Variety', 'Hollywood Reporter', 'Deadline', 'Billboard', 'Rolling Stone', 'Custom'];
+        $sourceFallbacks = ['Variety', 'Hollywood Reporter', 'Deadline', 'Billboard', 'Rolling Stone', 'Times of India', 'Bollywood Hungama', 'Hindustan Times', 'Custom'];
         $needsFetch = [];
         foreach ($pending as $i => $art) {
             $desc = trim(strip_tags($art['description'] ?? ''));
