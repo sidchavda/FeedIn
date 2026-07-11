@@ -44,7 +44,7 @@
                             <!-- Bulk Actions -->
                             <div class="bulk-action-bar align-items-center gap-2 mb-3" id="bulkActionBar">
                                 <span id="selectedCount" class="text-muted">0 selected</span>
-                                <button type="button" onclick="confirmBulkDelete()" class="btn btn-danger btn-sm"><i class="ri-delete-bin-line"></i> Delete</button>
+                                <!-- <button type="button" onclick="confirmBulkDelete()" class="btn btn-danger btn-sm"><i class="ri-delete-bin-line"></i> Delete</button> -->
                                 <button type="button" onclick="confirmBulkStatus(0)" class="btn btn-warning btn-sm"><i class="ri-close-circle-line"></i> Disable</button>
                                 <button type="button" onclick="confirmBulkStatus(1)" class="btn btn-success btn-sm"><i class="ri-checkbox-circle-line"></i> Enable</button>
                             </div>
