@@ -2,8 +2,8 @@
 
 @section('styles')
 <style>
-    .delete-multiple-bar { display: none; }
-    .delete-multiple-bar.show { display: flex; }
+    .bulk-action-bar { display: none; }
+    .bulk-action-bar.show { display: flex; }
 </style>
 @endsection
 
@@ -41,14 +41,16 @@
                             </div>
                             <!-- End Search Form -->
 
+                            <!-- Bulk Actions -->
+                            <div class="bulk-action-bar align-items-center gap-2 mb-3" id="bulkActionBar">
+                                <span id="selectedCount" class="text-muted">0 selected</span>
+                                <button type="button" onclick="confirmBulkDelete()" class="btn btn-danger btn-sm"><i class="ri-delete-bin-line"></i> Delete</button>
+                                <button type="button" onclick="confirmBulkStatus(0)" class="btn btn-warning btn-sm"><i class="ri-close-circle-line"></i> Disable</button>
+                                <button type="button" onclick="confirmBulkStatus(1)" class="btn btn-success btn-sm"><i class="ri-checkbox-circle-line"></i> Enable</button>
+                            </div>
+
                             <form id="deleteMultipleForm" method="POST" action="{{ route('admin.news.deleteMultiple') }}">
                                 @csrf
-                                <!-- Bulk Delete Bar -->
-                                <div class="delete-multiple-bar align-items-center gap-2 mb-3" id="deleteMultipleBar">
-                                    <span id="selectedCount" class="text-muted">0 selected</span>
-                                    <button type="button" onclick="confirmBulkDelete()" class="btn btn-danger btn-sm"><i class="ri-delete-bin-line"></i> Delete Selected</button>
-                                </div>
-
                                 <div class="table-responsive">
                                     <table class="table text-nowrap table-striped w-100">
                                         <thead>
@@ -82,7 +84,11 @@
                                                 <td>{{ $item->country ? $item->country->name : '-' }}</td>
                                                 <td>{{ $item->state ? $item->state->name : '-' }}</td>
                                                 <td>{{ $item->author }}</td>
-                                                <td>{{ $item->status == 1 ? 'Active' : 'Deactive' }}</td>
+                                                <td>
+                                                    <a href="javascript:void(0);" onclick="toggleStatus('{{$item->id}}', {{$item->status}})" class="badge {{ $item->status == 1 ? 'bg-success' : 'bg-danger' }} text-decoration-none">
+                                                        {{ $item->status == 1 ? 'Active' : 'Deactive' }}
+                                                    </a>
+                                                </td>
                                                 <td>{{ $item->created_at->format('d-m-Y') }}</td>
                                                 <td>
                                                     <a href="{{ route('admin.news.edit',$item->id) }}" class="btn btn-icon btn-sm btn-info-transparent rounded-pill"><i class="ri-edit-line"></i></a>
@@ -93,6 +99,11 @@
                                         </tbody>
                                     </table>
                                 </div>
+                            </form>
+
+                            <form id="bulkStatusForm" method="POST" action="{{ route('admin.news.toggleBulkStatus') }}">
+                                @csrf
+                                <input type="hidden" name="status" id="bulkStatusValue">
                             </form>
 
                             <!-- Pagination -->
@@ -130,6 +141,28 @@
             });
         }
 
+        function toggleStatus(id, current) {
+            const action = current == 1 ? 'disable' : 'enable';
+            Swal.fire({
+                title: (action == 'disable' ? 'Disable' : 'Enable') + ' this news?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, ' + action + '!',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.showLoading();
+                    var form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "{{ route('admin.news.toggleStatus', '') }}/" + id;
+                    form.innerHTML = '<input type="hidden" name="_token" value="{{ csrf_token() }}">';
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        }
+
         function toggleSelectAll(source) {
             document.querySelectorAll('.news-checkbox').forEach(cb => cb.checked = source.checked);
             updateBulkBar();
@@ -137,7 +170,7 @@
 
         function updateBulkBar() {
             const checked = document.querySelectorAll('.news-checkbox:checked');
-            const bar = document.getElementById('deleteMultipleBar');
+            const bar = document.getElementById('bulkActionBar');
             const count = document.getElementById('selectedCount');
             if (checked.length > 0) {
                 bar.classList.add('show');
@@ -163,6 +196,39 @@
                 if (result.isConfirmed) {
                     Swal.showLoading();
                     document.getElementById('deleteMultipleForm').submit();
+                }
+            });
+        }
+
+        function confirmBulkStatus(status) {
+            const checked = document.querySelectorAll('.news-checkbox:checked');
+            if (checked.length === 0) return;
+
+            const action = status == 1 ? 'enable' : 'disable';
+            Swal.fire({
+                title: action.charAt(0).toUpperCase() + action.slice(1) + ' ' + checked.length + ' news?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, ' + action + '!',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    var form = document.getElementById('bulkStatusForm');
+                    // Remove old dynamic inputs
+                    form.querySelectorAll('.dynamic-id').forEach(el => el.remove());
+                    // Add checked IDs as hidden inputs
+                    checked.forEach(cb => {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'ids[]';
+                        input.value = cb.value;
+                        input.className = 'dynamic-id';
+                        form.appendChild(input);
+                    });
+                    document.getElementById('bulkStatusValue').value = status;
+                    Swal.showLoading();
+                    form.submit();
                 }
             });
         }

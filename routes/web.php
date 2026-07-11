@@ -87,6 +87,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::post('/update/{id}', [NewsController::class, 'update'])->name('update');
         Route::get('/delete/{id}', [NewsController::class, 'delete'])->name('delete');
         Route::post('/delete-multiple', [NewsController::class, 'deleteMultiple'])->name('deleteMultiple');
+        Route::post('/toggle-status/{id}', [NewsController::class, 'toggleStatus'])->name('toggleStatus');
+        Route::post('/toggle-bulk-status', [NewsController::class, 'toggleBulkStatus'])->name('toggleBulkStatus');
     });
 
     // Categories by language API endpoint

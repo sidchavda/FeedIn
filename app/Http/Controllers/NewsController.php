@@ -223,4 +223,30 @@ class NewsController extends Controller
 
         return redirect()->back()->with('success', 'Selected news deleted successfully.');
     }
+
+    public function toggleStatus($id)
+    {
+        $news = News::findOrFail($id);
+        $news->status = ! $news->status;
+        $news->save();
+
+        $msg = $news->status ? 'News enabled successfully.' : 'News disabled successfully.';
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    public function toggleBulkStatus(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:news,id',
+            'status' => 'required|in:0,1',
+        ]);
+
+        News::whereIn('id', $request->ids)->update(['status' => $request->status]);
+
+        $msg = $request->status ? 'Selected news enabled successfully.' : 'Selected news disabled successfully.';
+
+        return redirect()->back()->with('success', $msg);
+    }
 }
